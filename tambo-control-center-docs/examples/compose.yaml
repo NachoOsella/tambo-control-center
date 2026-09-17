@@ -1,0 +1,27 @@
+name: tambo-demo
+
+services:
+  gateway:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_started
+
+  api:
+    image: eclipse-temurin:25-jre
+    command: ["sh", "-c", "while true; do echo api heartbeat; sleep 2; done"]
+    healthcheck:
+      test: ["CMD-SHELL", "exit 0"]
+      interval: 5s
+      timeout: 2s
+      retries: 3
+
+  worker:
+    image: alpine
+    command: ["sh", "-c", "while true; do echo worker tick; sleep 4; done"]
+
+  failing:
+    image: alpine
+    command: ["sh", "-c", "echo failing service; sleep 3; exit 7"]
