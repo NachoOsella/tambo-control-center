@@ -1,5 +1,6 @@
 package app.tambo.ui;
 
+import app.tambo.application.service.RefreshRuntimeSnapshot;
 import app.tambo.domain.service.ComposeService;
 import app.tambo.domain.service.PublishedPort;
 import app.tambo.domain.service.ServiceRuntime;
@@ -9,15 +10,20 @@ import dev.tamboui.toolkit.app.ToolkitApp;
 import dev.tamboui.toolkit.element.Element;
 import dev.tamboui.toolkit.elements.Panel;
 import dev.tamboui.toolkit.event.EventResult;
+import dev.tamboui.tui.event.Event;
 import dev.tamboui.tui.event.KeyEvent;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
 import static dev.tamboui.style.Color.CYAN;
 import static dev.tamboui.style.Color.DARK_GRAY;
+import static dev.tamboui.style.Color.LIGHT_GREEN;
+import static dev.tamboui.style.Color.LIGHT_RED;
+import static dev.tamboui.style.Color.LIGHT_YELLOW;
 import static dev.tamboui.toolkit.Toolkit.column;
 import static dev.tamboui.toolkit.Toolkit.panel;
 import static dev.tamboui.toolkit.Toolkit.row;
@@ -25,22 +31,33 @@ import static dev.tamboui.toolkit.Toolkit.text;
 
 public final class TamboApp extends ToolkitApp {
     private final ProjectContext project;
-    private final Map<String, ServiceRuntime> runtimeByService;
+    private final RefreshRuntimeSnapshot refreshRuntime;
+    private Map<String, ServiceRuntime> runtimeByService;
     private UiState state;
+    private RefreshStatus refreshStatus = RefreshStatus.IDLE;
+    private String refreshMessage = "";
 
     public TamboApp(
             ProjectContext project,
             List<ComposeService> services,
-            Map<String, ServiceRuntime> runtimeByService
+            Map<String, ServiceRuntime> runtimeByService,
+            RefreshRuntimeSnapshot refreshRuntime
     ) {
         this.project = Objects.requireNonNull(project, "project");
         this.runtimeByService = Map.copyOf(runtimeByService);
+        this.refreshRuntime = Objects.requireNonNull(refreshRuntime, "refreshRuntime");
         this.state = new UiState(services, 0);
     }
 
     @Override
     protected void onStart() {
         setWindowTitle("Tambo | " + projectName());
+        runner().eventRouter().addGlobalHandler(this::handleGlobalEvent);
+    }
+
+    @Override
+    protected void onStop() {
+        refreshRuntime.close();
     }
 
     @Override
@@ -164,9 +181,67 @@ public final class TamboApp extends ToolkitApp {
                 text("focus").dim(),
                 text("↑↓ j/k").fg(CYAN).bold(),
                 text("select").dim(),
+                text("g").fg(CYAN).bold(),
+                text("refresh").dim(),
                 text("q").fg(CYAN).bold(),
-                text("quit").dim()
+                text("quit").dim(),
+                text("").fill(),
+                refreshIndicator()
         ).spacing(1).length(1);
+    }
+
+    private Element refreshIndicator() {
+        return switch (refreshStatus) {
+            case IDLE -> text("󰡨 snapshot").dim();
+            case REFRESHING -> text("󰑐 refreshing").fg(LIGHT_YELLOW);
+            case SUCCEEDED -> text("󰄬 refreshed").fg(LIGHT_GREEN);
+            case FAILED -> text("󰅙 " + refreshMessage).fg(LIGHT_RED);
+        };
+    }
+
+    private EventResult handleGlobalEvent(Event event) {
+        if (event instanceof KeyEvent keyEvent && keyEvent.isChar('g')) {
+            return refreshRuntime();
+        }
+        return EventResult.UNHANDLED;
+    }
+
+    private EventResult refreshRuntime() {
+        if (refreshStatus == RefreshStatus.REFRESHING) {
+            return EventResult.HANDLED;
+        }
+
+        refreshStatus = RefreshStatus.REFRESHING;
+        refreshMessage = "";
+        refreshRuntime.execute().whenComplete((runtime, error) -> {
+            if (!runner().isRunning()) {
+                return;
+            }
+
+            // TamboUI renders on one thread, so async results return there before changing screen state.
+            runner().runOnRenderThread(() -> finishRefresh(runtime, error));
+        });
+        return EventResult.HANDLED;
+    }
+
+    private void finishRefresh(Map<String, ServiceRuntime> runtime, Throwable error) {
+        if (error == null) {
+            runtimeByService = Map.copyOf(runtime);
+            refreshStatus = RefreshStatus.SUCCEEDED;
+            return;
+        }
+
+        refreshStatus = RefreshStatus.FAILED;
+        refreshMessage = errorMessage(error);
+    }
+
+    private String errorMessage(Throwable error) {
+        var cause = error instanceof CompletionException && error.getCause() != null
+                ? error.getCause()
+                : error;
+        return cause.getMessage() == null || cause.getMessage().isBlank()
+                ? cause.getClass().getSimpleName()
+                : cause.getMessage();
     }
 
     private EventResult handleServiceKey(KeyEvent event) {
@@ -179,5 +254,12 @@ public final class TamboApp extends ToolkitApp {
             return EventResult.HANDLED;
         }
         return EventResult.UNHANDLED;
+    }
+
+    private enum RefreshStatus {
+        IDLE,
+        REFRESHING,
+        SUCCEEDED,
+        FAILED
     }
 }

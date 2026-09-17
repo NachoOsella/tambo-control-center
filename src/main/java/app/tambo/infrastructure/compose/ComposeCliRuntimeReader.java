@@ -1,5 +1,6 @@
 package app.tambo.infrastructure.compose;
 
+import app.tambo.application.service.RuntimeSnapshotReader;
 import app.tambo.domain.service.ComposeService;
 import app.tambo.domain.service.ContainerInstance;
 import app.tambo.domain.service.HealthState;
@@ -24,7 +25,7 @@ import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeoutException;
 
-public final class ComposeCliRuntimeReader {
+public final class ComposeCliRuntimeReader implements RuntimeSnapshotReader {
     private static final Duration RUNTIME_TIMEOUT = Duration.ofSeconds(10);
 
     private final ProcessRunner processRunner;
@@ -35,6 +36,7 @@ public final class ComposeCliRuntimeReader {
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
     }
 
+    @Override
     public Map<String, ServiceRuntime> readRuntime(
             ProjectContext project,
             List<ComposeService> services

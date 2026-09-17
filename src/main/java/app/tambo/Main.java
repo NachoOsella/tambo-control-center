@@ -1,5 +1,6 @@
 package app.tambo;
 
+import app.tambo.application.service.RefreshRuntimeSnapshot;
 import app.tambo.domain.service.ComposeService;
 import app.tambo.domain.service.ServiceRuntime;
 import app.tambo.infrastructure.compose.ComposeCliConfigReader;
@@ -52,6 +53,7 @@ public final class Main {
             return;
         }
 
-        new TamboApp(projectContext, services, runtime).run();
+        var refreshRuntime = new RefreshRuntimeSnapshot(runtimeReader, projectContext, services);
+        new TamboApp(projectContext, services, runtime, refreshRuntime).run();
     }
 }

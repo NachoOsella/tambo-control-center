@@ -3,7 +3,7 @@
 A Java terminal UI for inspecting and operating the Docker Compose project in the current repository.
 
 > [!WARNING]
-> Tambo is pre-release and is being implemented in small increments. The current runnable slice provides the TUI shell, Compose project discovery, service definition loading, and an initial runtime snapshot. Lifecycle actions, logs, and resource statistics are not available yet.
+> Tambo is pre-release and is being implemented in small increments. The current runnable slice provides the TUI shell, Compose project discovery, service definition loading, and manually refreshable runtime state. Lifecycle actions, logs, and resource statistics are not available yet.
 
 ## Why Tambo
 
@@ -25,7 +25,7 @@ The primary UI entity is a Compose **service**, not an individual container. Con
 | Compose file discovery | Available from the current directory and its parents |
 | Service list | Loaded from the effective Compose configuration |
 | Effective Compose configuration loading | Available |
-| Runtime and health observation | Available as the initial snapshot |
+| Runtime and health observation | Available with manual refresh |
 | Start, stop, and restart actions | Planned |
 | Selected and all-service logs | Planned |
 | Stats, events, and resizable panels | Planned |
@@ -58,6 +58,7 @@ The current screen has three panels:
 | `Tab` | Move focus between panels |
 | `Up` / `Down` | Move the service selection |
 | `j` / `k` | Move the service selection |
+| `g` | Refresh runtime and health state |
 | `q` | Quit |
 
 Selection stops at the first and last service. It does not wrap around.
@@ -88,7 +89,7 @@ mvn exec:java -Dexec.mainClass=app.tambo.Main
 
 If no file is found, the application exits with an explanatory error instead of opening an empty dashboard.
 
-The application loads service definitions from `docker compose config --format json` and an initial runtime snapshot from `docker compose ps --all --format json`. It does not start, stop, refresh, or stream logs yet.
+The application loads service definitions from `docker compose config --format json` and runtime state from `docker compose ps --all --format json`. Press `g` to refresh without blocking the terminal UI. It does not start, stop, or stream logs yet.
 
 ## Development fixture
 
@@ -128,6 +129,7 @@ The current tests cover the implemented foundation:
 - `ProjectContextTest`: path normalization and project-root validation;
 - `ComposeCliConfigReaderTest`: service and image mapping from Compose JSON;
 - `ComposeCliRuntimeReaderTest`: runtime, health, ports, exit codes, multiple instances, and missing services;
+- `RefreshRuntimeSnapshotTest`: asynchronous refresh results and failures;
 - `ProcessRunnerTest`: output capture, exit codes, and timeout handling;
 - `UiStateTest`: service selection and boundary behavior.
 
@@ -145,9 +147,9 @@ src/
 │   ├── Main.java
 │   ├── project/             Compose project discovery and context
 │   ├── ui/                  TamboUI application and UI state
-│   ├── application/         Reserved for application orchestration
-│   ├── domain/              Reserved for domain types
-│   └── infrastructure/      Reserved for external integrations
+│   ├── application/         Asynchronous application use cases
+│   ├── domain/              Compose service and runtime types
+│   └── infrastructure/      Compose CLI and process execution adapters
 └── test/java/app/tambo/     Unit tests for the implemented slices
 
 tambo-control-center-docs/
@@ -158,7 +160,7 @@ tambo-control-center-docs/
 └── README.md                Documentation index
 ```
 
-The empty packages are placeholders for future increments. They are not evidence that those layers are already implemented.
+Some empty packages remain as placeholders for future increments. They are not evidence that those layers are already implemented.
 
 ## Design direction
 
