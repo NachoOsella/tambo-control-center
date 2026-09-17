@@ -30,7 +30,7 @@ src/
     └── resources/
 ```
 
-The directories contain placeholders only. No application behavior has been added.
+The directories contain placeholders only. `app.tambo.Main` is the empty entry point. No application behavior has been added.
 
 ## Build
 
