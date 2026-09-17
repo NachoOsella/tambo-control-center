@@ -1,0 +1,21 @@
+name: tambo-control-center
+
+services:
+  gateway:
+    image: nginx:1.27-alpine
+    ports:
+      - "8080:80"
+
+  challenge:
+    image: alpine:3.22
+    command: ["sh", "-c", "while true; do echo challenge heartbeat; sleep 2; done"]
+
+  bank:
+    image: redis:7-alpine
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: tambo
+      POSTGRES_USER: tambo
+      POSTGRES_PASSWORD: local-development-only
