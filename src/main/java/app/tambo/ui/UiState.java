@@ -1,8 +1,10 @@
 package app.tambo.ui;
 
+import app.tambo.domain.service.ComposeService;
+
 import java.util.List;
 
-record UiState(List<String> services, int selectedIndex) {
+record UiState(List<ComposeService> services, int selectedIndex) {
     UiState {
         services = List.copyOf(services);
         if (services.isEmpty()) {
@@ -13,7 +15,7 @@ record UiState(List<String> services, int selectedIndex) {
         }
     }
 
-    String selectedService() {
+    ComposeService selectedService() {
         return services.get(selectedIndex);
     }
 

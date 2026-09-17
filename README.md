@@ -3,7 +3,7 @@
 A Java terminal UI for inspecting and operating the Docker Compose project in the current repository.
 
 > [!WARNING]
-> Tambo is pre-release and is being implemented in small increments. The current runnable slice provides the TUI shell and Compose project-file discovery. Runtime status, lifecycle actions, logs, and resource statistics are not available yet.
+> Tambo is pre-release and is being implemented in small increments. The current runnable slice provides the TUI shell, Compose project discovery, and service definition loading. Runtime status, lifecycle actions, logs, and resource statistics are not available yet.
 
 ## Why Tambo
 
@@ -23,8 +23,8 @@ The primary UI entity is a Compose **service**, not an individual container. Con
 | Java project and Maven build | Available |
 | Full-screen TUI | Available |
 | Compose file discovery | Available from the current directory and its parents |
-| Service list | Static in the current committed UI slice |
-| Effective Compose configuration loading | In progress |
+| Service list | Loaded from the effective Compose configuration |
+| Effective Compose configuration loading | Available |
 | Runtime and health observation | Planned |
 | Start, stop, and restart actions | Planned |
 | Selected and all-service logs | Planned |
@@ -39,9 +39,9 @@ The current screen has three panels:
 ```text
 ┌ Tambo | project ─────────────────────────────────────────────────────┐
 │ Services                    │ Details                                │
-│ ▸ gateway                   │ Service gateway                        │
-│   challenge                 │                                        │
-│   bank                      │                                        │
+│ ▸ bank                      │ Service bank                           │
+│   challenge                 │ Image alpine:3.22                      │
+│   gateway                   │                                        │
 │   postgres                  │                                        │
 ├────────────────────────────┴─────────────────────────────────────────┤
 │ Logs [selected: gateway]                                               │
@@ -68,7 +68,8 @@ Selection stops at the first and last service. It does not wrap around.
 - Maven
 - A terminal that supports the TUI backend
 
-Docker and a running Docker daemon are not required by the current TUI-only slice. They will be required when Compose integration is enabled.
+- Docker Compose must be available on `PATH`.
+- A running Docker daemon is not required for the current configuration-loading slice.
 
 ## Quick start
 
@@ -88,7 +89,7 @@ mvn exec:java -Dexec.mainClass=app.tambo.Main
 
 If no file is found, the application exits with an explanatory error instead of opening an empty dashboard.
 
-The application currently uses the static service list in the TUI. It does not start, stop, inspect, or stream anything from Docker yet.
+The application loads service names and images from `docker compose config --format json`. It does not start, stop, inspect runtime state, or stream logs yet.
 
 ## Development fixture
 
@@ -126,6 +127,8 @@ The current tests cover the implemented foundation:
 
 - `ProjectLocatorTest`: supported filenames, parent-directory discovery, precedence, and missing files;
 - `ProjectContextTest`: path normalization and project-root validation;
+- `ComposeCliConfigReaderTest`: service and image mapping from Compose JSON;
+- `ProcessRunnerTest`: output capture, exit codes, and timeout handling;
 - `UiStateTest`: service selection and boundary behavior.
 
 Run the test suite with:

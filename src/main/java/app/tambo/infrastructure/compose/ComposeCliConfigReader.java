@@ -1,5 +1,6 @@
 package app.tambo.infrastructure.compose;
 
+import app.tambo.domain.service.ComposeService;
 import app.tambo.infrastructure.process.Command;
 import app.tambo.infrastructure.process.ProcessRunner;
 import app.tambo.project.ProjectContext;
@@ -10,7 +11,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.TimeoutException;
 
 public final class ComposeCliConfigReader {
@@ -20,11 +24,11 @@ public final class ComposeCliConfigReader {
     private final ObjectMapper objectMapper;
 
     public ComposeCliConfigReader(ProcessRunner processRunner, ObjectMapper objectMapper) {
-        this.processRunner = processRunner;
-        this.objectMapper = objectMapper;
+        this.processRunner = Objects.requireNonNull(processRunner, "processRunner");
+        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
     }
 
-    public List<String> readServices(ProjectContext project)
+    public List<ComposeService> readServices(ProjectContext project)
             throws IOException, InterruptedException, TimeoutException {
         var command = new Command(
                 List.of("docker", "compose", "config", "--format", "json"),
@@ -41,18 +45,33 @@ public final class ComposeCliConfigReader {
         return parseServices(result.stdout());
     }
 
-    List<String> parseServices(String json) throws IOException {
+    List<ComposeService> parseServices(String json) throws IOException {
         JsonNode services = objectMapper.readTree(json).path("services");
         if (!services.isObject()) {
             throw new IOException("Compose config does not contain a services object");
         }
 
-        var names = new ArrayList<String>();
-        services.fieldNames().forEachRemaining(names::add);
-        if (names.isEmpty()) {
+        var composeServices = new ArrayList<ComposeService>();
+        var serviceNames = services.fieldNames();
+        while (serviceNames.hasNext()) {
+            var name = serviceNames.next();
+            var service = services.get(name);
+            if (!service.isObject()) {
+                throw new IOException("Compose service " + name + " is not an object");
+            }
+
+            var image = Optional.ofNullable(service.get("image"))
+                    .filter(JsonNode::isTextual)
+                    .map(JsonNode::textValue)
+                    .filter(value -> !value.isBlank());
+            composeServices.add(new ComposeService(name, image));
+        }
+        if (composeServices.isEmpty()) {
             throw new IOException("Compose config does not declare any services");
         }
 
-        return names.stream().sorted().toList();
+        return composeServices.stream()
+                .sorted(Comparator.comparing(ComposeService::name))
+                .toList();
     }
 }

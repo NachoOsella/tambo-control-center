@@ -1,5 +1,6 @@
 package app.tambo.ui;
 
+import app.tambo.domain.service.ComposeService;
 import app.tambo.project.ProjectContext;
 
 import dev.tamboui.toolkit.app.ToolkitApp;
@@ -22,7 +23,7 @@ public final class TamboApp extends ToolkitApp {
     private final ProjectContext project;
     private UiState state;
 
-    public TamboApp(ProjectContext project, List<String> services) {
+    public TamboApp(ProjectContext project, List<ComposeService> services) {
         this.project = Objects.requireNonNull(project, "project");
         this.state = new UiState(services, 0);
     }
@@ -39,7 +40,7 @@ public final class TamboApp extends ToolkitApp {
                 detailsPanel().fill()
         ).spacing(1).percent(55);
 
-        var logs = standardPanel("Logs [selected: " + state.selectedService() + "]")
+        var logs = standardPanel("Logs [selected: " + state.selectedService().name() + "]")
                 .id("logs")
                 .focusable()
                 .focusedBorderColor(CYAN)
@@ -61,11 +62,17 @@ public final class TamboApp extends ToolkitApp {
     }
 
     private Panel detailsPanel() {
-        var service = row(
-                text("Service").dim().length(12),
-                text(state.selectedService()).fg(CYAN).bold().fill()
-        );
-        return standardPanel("Details", service)
+        var details = column(
+                row(
+                        text("Service").dim().length(12),
+                        text(state.selectedService().name()).fg(CYAN).bold().fill()
+                ),
+                row(
+                        text("Image").dim().length(12),
+                        text(state.selectedService().image().orElse("not specified")).fill()
+                )
+        ).spacing(1);
+        return standardPanel("Details", details)
                 .id("details")
                 .focusable()
                 .focusedBorderColor(CYAN);
@@ -84,7 +91,7 @@ public final class TamboApp extends ToolkitApp {
         var rows = new Element[state.services().size()];
         for (int index = 0; index < state.services().size(); index++) {
             boolean selected = index == state.selectedIndex();
-            var service = text((selected ? "▸ " : "  ") + state.services().get(index));
+            var service = text((selected ? "▸ " : "  ") + state.services().get(index).name());
             rows[index] = selected ? service.fg(CYAN).bold() : service;
         }
         return column(rows);

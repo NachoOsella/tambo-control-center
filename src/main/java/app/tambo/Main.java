@@ -1,5 +1,6 @@
 package app.tambo;
 
+import app.tambo.domain.service.ComposeService;
 import app.tambo.infrastructure.compose.ComposeCliConfigReader;
 import app.tambo.infrastructure.process.ProcessRunner;
 import app.tambo.project.ProjectLocator;
@@ -29,7 +30,7 @@ public final class Main {
         var projectContext = project.orElseThrow();
         var configReader = new ComposeCliConfigReader(new ProcessRunner(), new ObjectMapper());
 
-        List<String> services;
+        List<ComposeService> services;
         try {
             services = configReader.readServices(projectContext);
         } catch (IOException | TimeoutException exception) {
