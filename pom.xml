@@ -32,7 +32,7 @@
     <dependencies>
         <dependency>
             <groupId>dev.tamboui</groupId>
-            <artifactId>tamboui-tui</artifactId>
+            <artifactId>tamboui-toolkit</artifactId>
         </dependency>
         <dependency>
             <groupId>dev.tamboui</groupId>
