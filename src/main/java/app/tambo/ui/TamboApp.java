@@ -1,12 +1,15 @@
 package app.tambo.ui;
 
+import app.tambo.project.ProjectContext;
+
 import dev.tamboui.toolkit.app.ToolkitApp;
 import dev.tamboui.toolkit.element.Element;
-import dev.tamboui.toolkit.event.EventResult;
 import dev.tamboui.toolkit.elements.Panel;
+import dev.tamboui.toolkit.event.EventResult;
 import dev.tamboui.tui.event.KeyEvent;
 
 import java.util.List;
+import java.util.Objects;
 
 import static dev.tamboui.style.Color.CYAN;
 import static dev.tamboui.style.Color.DARK_GRAY;
@@ -16,10 +19,20 @@ import static dev.tamboui.toolkit.Toolkit.row;
 import static dev.tamboui.toolkit.Toolkit.text;
 
 public final class TamboApp extends ToolkitApp {
+    private final ProjectContext project;
     private UiState state = new UiState(
             List.of("gateway", "challenge", "bank", "postgres"),
             0
     );
+
+    public TamboApp(ProjectContext project) {
+        this.project = Objects.requireNonNull(project, "project");
+    }
+
+    @Override
+    protected void onStart() {
+        setWindowTitle("Tambo | " + projectName());
+    }
 
     @Override
     protected Element render() {
@@ -62,6 +75,11 @@ public final class TamboApp extends ToolkitApp {
 
     private Panel standardPanel(String title, Element... children) {
         return panel(title, children).borderColor(DARK_GRAY);
+    }
+
+    private String projectName() {
+        var name = project.root().getFileName();
+        return name == null ? project.root().toString() : name.toString();
     }
 
     private Element serviceList() {
