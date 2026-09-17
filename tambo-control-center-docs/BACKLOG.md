@@ -14,7 +14,7 @@
 - [x] Runtime/health mapping.
 - [x] Manual refresh.
 - [x] Periodic runtime refresh.
-- [ ] Up selected service.
+- [x] Up selected service.
 - [ ] Stop selected service.
 - [ ] Restart selected service.
 - [ ] Operation state.

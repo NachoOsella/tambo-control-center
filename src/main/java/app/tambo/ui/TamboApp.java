@@ -1,6 +1,8 @@
 package app.tambo.ui;
 
+import app.tambo.application.service.LifecycleResult;
 import app.tambo.application.service.RefreshRuntimeSnapshot;
+import app.tambo.application.service.UpService;
 import app.tambo.domain.service.ComposeService;
 import app.tambo.domain.service.PublishedPort;
 import app.tambo.domain.service.ServiceRuntime;
@@ -15,9 +17,11 @@ import dev.tamboui.tui.event.Event;
 import dev.tamboui.tui.event.KeyEvent;
 
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
@@ -36,21 +40,27 @@ public final class TamboApp extends ToolkitApp {
 
     private final ProjectContext project;
     private final RefreshRuntimeSnapshot refreshRuntime;
+    private final UpService upService;
+    private final Set<String> startingServices = new HashSet<>();
     private Map<String, ServiceRuntime> runtimeByService;
     private UiState state;
     private RefreshStatus refreshStatus = RefreshStatus.IDLE;
     private String refreshMessage = "";
+    private OperationStatus operationStatus = OperationStatus.IDLE;
+    private String operationMessage = "";
     private ToolkitRunner.ScheduledAction runtimePolling;
 
     public TamboApp(
             ProjectContext project,
             List<ComposeService> services,
             Map<String, ServiceRuntime> runtimeByService,
-            RefreshRuntimeSnapshot refreshRuntime
+            RefreshRuntimeSnapshot refreshRuntime,
+            UpService upService
     ) {
         this.project = Objects.requireNonNull(project, "project");
         this.runtimeByService = Map.copyOf(runtimeByService);
         this.refreshRuntime = Objects.requireNonNull(refreshRuntime, "refreshRuntime");
+        this.upService = Objects.requireNonNull(upService, "upService");
         this.state = new UiState(services, 0);
     }
 
@@ -67,6 +77,7 @@ public final class TamboApp extends ToolkitApp {
     @Override
     protected void onStop() {
         runtimePolling.cancel();
+        upService.close();
         refreshRuntime.close();
     }
 
@@ -112,6 +123,10 @@ public final class TamboApp extends ToolkitApp {
                 row(
                         text("Runtime").dim().length(12),
                         text(runtime.runtimeState().displayName()).fill()
+                ),
+                row(
+                        text("Operation").dim().length(12),
+                        text(selectedOperation()).fill()
                 ),
                 row(
                         text("Health").dim().length(12),
@@ -161,6 +176,10 @@ public final class TamboApp extends ToolkitApp {
         return runtimeFor(state.selectedService());
     }
 
+    private String selectedOperation() {
+        return startingServices.contains(state.selectedService().name()) ? "starting" : "idle";
+    }
+
     private ServiceRuntime runtimeFor(ComposeService service) {
         return runtimeByService.getOrDefault(service.name(), ServiceRuntime.notCreated());
     }
@@ -191,16 +210,27 @@ public final class TamboApp extends ToolkitApp {
                 text("focus").dim(),
                 text("↑↓ j/k").fg(CYAN).bold(),
                 text("select").dim(),
+                text("u").fg(CYAN).bold(),
+                text("up").dim(),
                 text("g").fg(CYAN).bold(),
                 text("refresh").dim(),
                 text("q").fg(CYAN).bold(),
                 text("quit").dim(),
                 text("").fill(),
-                refreshIndicator()
+                statusIndicator()
         ).spacing(1).length(1);
     }
 
-    private Element refreshIndicator() {
+    private Element statusIndicator() {
+        if (operationStatus != OperationStatus.IDLE) {
+            return switch (operationStatus) {
+                case RUNNING -> text("󰐊 " + operationMessage).fg(LIGHT_YELLOW);
+                case SUCCEEDED -> text("󰄬 " + operationMessage).fg(LIGHT_GREEN);
+                case FAILED -> text("󰅙 " + operationMessage).fg(LIGHT_RED);
+                case IDLE -> throw new IllegalStateException("idle operation has no indicator");
+            };
+        }
+
         return switch (refreshStatus) {
             case IDLE -> text("󰡨 auto 5s").dim();
             case REFRESHING -> text("󰑐 refreshing · auto 5s").fg(LIGHT_YELLOW);
@@ -210,10 +240,57 @@ public final class TamboApp extends ToolkitApp {
     }
 
     private EventResult handleGlobalEvent(Event event) {
-        if (event instanceof KeyEvent keyEvent && keyEvent.isChar('g')) {
+        if (!(event instanceof KeyEvent keyEvent)) {
+            return EventResult.UNHANDLED;
+        }
+        if (keyEvent.isChar('u')) {
+            return upSelectedService();
+        }
+        if (keyEvent.isChar('g')) {
             return requestRuntimeRefresh();
         }
         return EventResult.UNHANDLED;
+    }
+
+    private EventResult upSelectedService() {
+        var serviceName = state.selectedService().name();
+        if (!startingServices.add(serviceName)) {
+            return EventResult.HANDLED;
+        }
+
+        operationStatus = OperationStatus.RUNNING;
+        operationMessage = "starting " + serviceName;
+        upService.execute(serviceName).whenComplete((result, error) -> {
+            if (!runner().isRunning()) {
+                return;
+            }
+            runner().runOnRenderThread(() -> finishUp(serviceName, result, error));
+        });
+        return EventResult.HANDLED;
+    }
+
+    private void finishUp(String serviceName, LifecycleResult result, Throwable error) {
+        startingServices.remove(serviceName);
+
+        if (error != null) {
+            operationStatus = OperationStatus.FAILED;
+            operationMessage = "up " + serviceName + " failed: " + errorMessage(error);
+            return;
+        }
+        if (result instanceof LifecycleResult.Failed failure) {
+            operationStatus = OperationStatus.FAILED;
+            operationMessage = "up " + serviceName + " failed: " + compact(failure.message());
+            return;
+        }
+        if (result instanceof LifecycleResult.Rejected) {
+            operationStatus = OperationStatus.FAILED;
+            operationMessage = serviceName + " already has an active operation";
+            return;
+        }
+
+        operationStatus = OperationStatus.SUCCEEDED;
+        operationMessage = "started " + serviceName;
+        requestRuntimeRefresh();
     }
 
     private EventResult requestRuntimeRefresh() {
@@ -238,6 +315,10 @@ public final class TamboApp extends ToolkitApp {
         if (error == null) {
             runtimeByService = Map.copyOf(runtime);
             refreshStatus = RefreshStatus.SUCCEEDED;
+            if (operationStatus == OperationStatus.SUCCEEDED) {
+                operationStatus = OperationStatus.IDLE;
+                operationMessage = "";
+            }
             return;
         }
 
@@ -251,7 +332,11 @@ public final class TamboApp extends ToolkitApp {
                 : error;
         return cause.getMessage() == null || cause.getMessage().isBlank()
                 ? cause.getClass().getSimpleName()
-                : cause.getMessage();
+                : compact(cause.getMessage());
+    }
+
+    private String compact(String message) {
+        return message.replaceAll("\\s+", " ").strip();
     }
 
     private EventResult handleServiceKey(KeyEvent event) {
@@ -269,6 +354,13 @@ public final class TamboApp extends ToolkitApp {
     private enum RefreshStatus {
         IDLE,
         REFRESHING,
+        SUCCEEDED,
+        FAILED
+    }
+
+    private enum OperationStatus {
+        IDLE,
+        RUNNING,
         SUCCEEDED,
         FAILED
     }

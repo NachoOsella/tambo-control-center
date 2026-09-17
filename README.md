@@ -3,7 +3,7 @@
 A Java terminal UI for inspecting and operating the Docker Compose project in the current repository.
 
 > [!WARNING]
-> Tambo is pre-release and is being implemented in small increments. The current runnable slice provides the TUI shell, Compose project discovery, service definition loading, and automatically refreshed runtime state. Lifecycle actions, logs, and resource statistics are not available yet.
+> Tambo is pre-release and is being implemented in small increments. The current runnable slice provides Compose discovery, automatically refreshed runtime state, and asynchronous startup for the selected service. Stop, restart, logs, and resource statistics are not available yet.
 
 ## Why Tambo
 
@@ -26,7 +26,7 @@ The primary UI entity is a Compose **service**, not an individual container. Con
 | Service list | Loaded from the effective Compose configuration |
 | Effective Compose configuration loading | Available |
 | Runtime and health observation | Refreshed every five seconds and manually with `g` |
-| Start, stop, and restart actions | Planned |
+| Start, stop, and restart actions | Start selected is available; stop and restart are planned |
 | Selected and all-service logs | Planned |
 | Stats, events, and resizable panels | Planned |
 
@@ -58,6 +58,7 @@ The current screen has three panels:
 | `Tab` | Move focus between panels |
 | `Up` / `Down` | Move the service selection |
 | `j` / `k` | Move the service selection |
+| `u` | Create or start the selected service |
 | `g` | Refresh runtime and health state |
 | `q` | Quit |
 
@@ -89,7 +90,7 @@ mvn exec:java -Dexec.mainClass=app.tambo.Main
 
 If no file is found, the application exits with an explanatory error instead of opening an empty dashboard.
 
-The application loads service definitions from `docker compose config --format json` and refreshes runtime state from `docker compose ps --all --format json` every five seconds. Press `g` to refresh immediately. Refreshes run in the background and overlapping requests share one operation. It does not start, stop, or stream logs yet.
+The application loads service definitions from `docker compose config --format json` and refreshes runtime state from `docker compose ps --all --format json` every five seconds. Press `u` to run `docker compose up -d <service>` for the selected service, or `g` to refresh immediately. Operations run in the background and update runtime from Compose after completion.
 
 ## Development fixture
 
@@ -130,6 +131,7 @@ The current tests cover the implemented foundation:
 - `ComposeCliConfigReaderTest`: service and image mapping from Compose JSON;
 - `ComposeCliRuntimeReaderTest`: runtime, health, ports, exit codes, multiple instances, and missing services;
 - `RefreshRuntimeSnapshotTest`: asynchronous results, failures, and overlapping refresh requests;
+- `UpServiceTest`: asynchronous startup and duplicate operation rejection;
 - `ProcessRunnerTest`: output capture, exit codes, and timeout handling;
 - `UiStateTest`: service selection and boundary behavior.
 
