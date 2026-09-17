@@ -20,13 +20,11 @@ import static dev.tamboui.toolkit.Toolkit.text;
 
 public final class TamboApp extends ToolkitApp {
     private final ProjectContext project;
-    private UiState state = new UiState(
-            List.of("gateway", "challenge", "bank", "postgres"),
-            0
-    );
+    private UiState state;
 
-    public TamboApp(ProjectContext project) {
+    public TamboApp(ProjectContext project, List<String> services) {
         this.project = Objects.requireNonNull(project, "project");
+        this.state = new UiState(services, 0);
     }
 
     @Override
