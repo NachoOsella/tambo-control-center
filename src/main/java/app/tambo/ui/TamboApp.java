@@ -3,10 +3,13 @@ package app.tambo.ui;
 import dev.tamboui.toolkit.app.ToolkitApp;
 import dev.tamboui.toolkit.element.Element;
 import dev.tamboui.toolkit.event.EventResult;
+import dev.tamboui.toolkit.elements.Panel;
 import dev.tamboui.tui.event.KeyEvent;
 
 import java.util.List;
 
+import static dev.tamboui.style.Color.CYAN;
+import static dev.tamboui.style.Color.DARK_GRAY;
 import static dev.tamboui.toolkit.Toolkit.column;
 import static dev.tamboui.toolkit.Toolkit.panel;
 import static dev.tamboui.toolkit.Toolkit.row;
@@ -21,28 +24,54 @@ public final class TamboApp extends ToolkitApp {
     @Override
     protected Element render() {
         var overview = row(
-                panel("Services", serviceList())
-                        .id("services")
-                        .focusable()
-                        .onKeyEvent(this::handleServiceKey)
-                        .percent(40),
-                panel("Details", text("Service: " + state.selectedService())).fill()
-        ).percent(60);
+                servicesPanel().percent(30),
+                detailsPanel().fill()
+        ).spacing(1).percent(55);
 
         return column(
                 overview,
-                panel("Logs").fill(),
-                text(" up/down or j/k select | q quit").length(1)
+                standardPanel("Logs [selected: " + state.selectedService() + "]").fill(),
+                statusBar()
+        ).spacing(1);
+    }
+
+    private Panel servicesPanel() {
+        return standardPanel("Services", serviceList())
+                .id("services")
+                .focusable()
+                .focusedBorderColor(CYAN)
+                .onKeyEvent(this::handleServiceKey);
+    }
+
+    private Panel detailsPanel() {
+        var service = row(
+                text("Service").dim().length(12),
+                text(state.selectedService()).fg(CYAN).bold().fill()
         );
+        return standardPanel("Details", service);
+    }
+
+    private Panel standardPanel(String title, Element... children) {
+        return panel(title, children).borderColor(DARK_GRAY);
     }
 
     private Element serviceList() {
         var rows = new Element[state.services().size()];
         for (int index = 0; index < state.services().size(); index++) {
-            var marker = index == state.selectedIndex() ? "> " : "  ";
-            rows[index] = text(marker + state.services().get(index));
+            boolean selected = index == state.selectedIndex();
+            var service = text((selected ? "▸ " : "  ") + state.services().get(index));
+            rows[index] = selected ? service.fg(CYAN).bold() : service;
         }
         return column(rows);
+    }
+
+    private Element statusBar() {
+        return row(
+                text(" ↑↓ j/k").fg(CYAN).bold(),
+                text("select").dim(),
+                text("q").fg(CYAN).bold(),
+                text("quit").dim()
+        ).spacing(1).length(1);
     }
 
     private EventResult handleServiceKey(KeyEvent event) {
