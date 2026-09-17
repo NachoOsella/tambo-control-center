@@ -14,16 +14,28 @@ This repository currently contains project setup only. The application code will
 
 Spring, Docker integration, and JSON mapping are intentionally not included yet. They belong to later milestones when the code needs them.
 
+## Structure
+
+```text
+src/
+├── main/
+│   ├── java/app/tambo/
+│   │   ├── domain/{project,service,logs}
+│   │   ├── application/{project,service,logs,state}
+│   │   ├── infrastructure/{compose,process,filesystem,json}
+│   │   └── ui/{screen,component,input,state,presenter}
+│   └── resources/
+└── test/
+    ├── java/app/tambo/{domain,application,infrastructure,ui}
+    └── resources/
+```
+
+The directories contain placeholders only. No application behavior has been added.
+
 ## Build
 
 ```bash
 mvn test
-```
-
-Run the application after the first UI increment with:
-
-```bash
-mvn exec:java -Dexec.mainClass=app.tambo.Main
 ```
 
 ## Documentation
