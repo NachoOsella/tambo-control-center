@@ -3,7 +3,7 @@
 A Java terminal UI for inspecting and operating the Docker Compose project in the current repository.
 
 > [!WARNING]
-> Tambo is pre-release and is being implemented in small increments. The current runnable slice provides the TUI shell, Compose project discovery, service definition loading, and manually refreshable runtime state. Lifecycle actions, logs, and resource statistics are not available yet.
+> Tambo is pre-release and is being implemented in small increments. The current runnable slice provides the TUI shell, Compose project discovery, service definition loading, and automatically refreshed runtime state. Lifecycle actions, logs, and resource statistics are not available yet.
 
 ## Why Tambo
 
@@ -25,7 +25,7 @@ The primary UI entity is a Compose **service**, not an individual container. Con
 | Compose file discovery | Available from the current directory and its parents |
 | Service list | Loaded from the effective Compose configuration |
 | Effective Compose configuration loading | Available |
-| Runtime and health observation | Available with manual refresh |
+| Runtime and health observation | Refreshed every five seconds and manually with `g` |
 | Start, stop, and restart actions | Planned |
 | Selected and all-service logs | Planned |
 | Stats, events, and resizable panels | Planned |
@@ -89,7 +89,7 @@ mvn exec:java -Dexec.mainClass=app.tambo.Main
 
 If no file is found, the application exits with an explanatory error instead of opening an empty dashboard.
 
-The application loads service definitions from `docker compose config --format json` and runtime state from `docker compose ps --all --format json`. Press `g` to refresh without blocking the terminal UI. It does not start, stop, or stream logs yet.
+The application loads service definitions from `docker compose config --format json` and refreshes runtime state from `docker compose ps --all --format json` every five seconds. Press `g` to refresh immediately. Refreshes run in the background and overlapping requests share one operation. It does not start, stop, or stream logs yet.
 
 ## Development fixture
 
@@ -129,7 +129,7 @@ The current tests cover the implemented foundation:
 - `ProjectContextTest`: path normalization and project-root validation;
 - `ComposeCliConfigReaderTest`: service and image mapping from Compose JSON;
 - `ComposeCliRuntimeReaderTest`: runtime, health, ports, exit codes, multiple instances, and missing services;
-- `RefreshRuntimeSnapshotTest`: asynchronous refresh results and failures;
+- `RefreshRuntimeSnapshotTest`: asynchronous results, failures, and overlapping refresh requests;
 - `ProcessRunnerTest`: output capture, exit codes, and timeout handling;
 - `UiStateTest`: service selection and boundary behavior.
 

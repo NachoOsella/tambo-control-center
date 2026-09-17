@@ -7,12 +7,14 @@ import app.tambo.domain.service.ServiceRuntime;
 import app.tambo.project.ProjectContext;
 
 import dev.tamboui.toolkit.app.ToolkitApp;
+import dev.tamboui.toolkit.app.ToolkitRunner;
 import dev.tamboui.toolkit.element.Element;
 import dev.tamboui.toolkit.elements.Panel;
 import dev.tamboui.toolkit.event.EventResult;
 import dev.tamboui.tui.event.Event;
 import dev.tamboui.tui.event.KeyEvent;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -30,12 +32,15 @@ import static dev.tamboui.toolkit.Toolkit.row;
 import static dev.tamboui.toolkit.Toolkit.text;
 
 public final class TamboApp extends ToolkitApp {
+    private static final Duration RUNTIME_REFRESH_INTERVAL = Duration.ofSeconds(5);
+
     private final ProjectContext project;
     private final RefreshRuntimeSnapshot refreshRuntime;
     private Map<String, ServiceRuntime> runtimeByService;
     private UiState state;
     private RefreshStatus refreshStatus = RefreshStatus.IDLE;
     private String refreshMessage = "";
+    private ToolkitRunner.ScheduledAction runtimePolling;
 
     public TamboApp(
             ProjectContext project,
@@ -53,10 +58,15 @@ public final class TamboApp extends ToolkitApp {
     protected void onStart() {
         setWindowTitle("Tambo | " + projectName());
         runner().eventRouter().addGlobalHandler(this::handleGlobalEvent);
+        runtimePolling = runner().scheduleRepeating(
+                () -> runner().runOnRenderThread(() -> requestRuntimeRefresh()),
+                RUNTIME_REFRESH_INTERVAL
+        );
     }
 
     @Override
     protected void onStop() {
+        runtimePolling.cancel();
         refreshRuntime.close();
     }
 
@@ -192,21 +202,21 @@ public final class TamboApp extends ToolkitApp {
 
     private Element refreshIndicator() {
         return switch (refreshStatus) {
-            case IDLE -> text("󰡨 snapshot").dim();
-            case REFRESHING -> text("󰑐 refreshing").fg(LIGHT_YELLOW);
-            case SUCCEEDED -> text("󰄬 refreshed").fg(LIGHT_GREEN);
+            case IDLE -> text("󰡨 auto 5s").dim();
+            case REFRESHING -> text("󰑐 refreshing · auto 5s").fg(LIGHT_YELLOW);
+            case SUCCEEDED -> text("󰄬 auto 5s").fg(LIGHT_GREEN);
             case FAILED -> text("󰅙 " + refreshMessage).fg(LIGHT_RED);
         };
     }
 
     private EventResult handleGlobalEvent(Event event) {
         if (event instanceof KeyEvent keyEvent && keyEvent.isChar('g')) {
-            return refreshRuntime();
+            return requestRuntimeRefresh();
         }
         return EventResult.UNHANDLED;
     }
 
-    private EventResult refreshRuntime() {
+    private EventResult requestRuntimeRefresh() {
         if (refreshStatus == RefreshStatus.REFRESHING) {
             return EventResult.HANDLED;
         }

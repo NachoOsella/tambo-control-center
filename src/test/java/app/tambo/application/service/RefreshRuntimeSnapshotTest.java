@@ -11,11 +11,16 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RefreshRuntimeSnapshotTest {
     private final ProjectContext project = new ProjectContext(
@@ -33,6 +38,30 @@ class RefreshRuntimeSnapshotTest {
 
         try (var refresh = new RefreshRuntimeSnapshot(reader, project, services)) {
             assertEquals(expected, refresh.execute().get());
+        }
+    }
+
+    @Test
+    void reusesAnInFlightRefresh() throws Exception {
+        var readCount = new AtomicInteger();
+        var readStarted = new CountDownLatch(1);
+        var finishRead = new CountDownLatch(1);
+        RuntimeSnapshotReader reader = (ignoredProject, ignoredServices) -> {
+            readCount.incrementAndGet();
+            readStarted.countDown();
+            finishRead.await();
+            return Map.of("api", ServiceRuntime.notCreated());
+        };
+
+        try (var refresh = new RefreshRuntimeSnapshot(reader, project, services)) {
+            var first = refresh.execute();
+            assertTrue(readStarted.await(1, TimeUnit.SECONDS));
+            var second = refresh.execute();
+
+            assertSame(first, second);
+            finishRead.countDown();
+            first.get();
+            assertEquals(1, readCount.get());
         }
     }
 

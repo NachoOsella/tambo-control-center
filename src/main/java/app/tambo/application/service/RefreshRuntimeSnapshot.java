@@ -17,6 +17,7 @@ public final class RefreshRuntimeSnapshot implements AutoCloseable {
     private final ProjectContext project;
     private final List<ComposeService> services;
     private final ExecutorService executor;
+    private CompletableFuture<Map<String, ServiceRuntime>> inFlightRefresh;
 
     public RefreshRuntimeSnapshot(
             RuntimeSnapshotReader reader,
@@ -38,17 +39,34 @@ public final class RefreshRuntimeSnapshot implements AutoCloseable {
         this.executor = Objects.requireNonNull(executor, "executor");
     }
 
-    public CompletableFuture<Map<String, ServiceRuntime>> execute() {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                return reader.readRuntime(project, services);
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-                throw new CompletionException(exception);
-            } catch (Exception exception) {
-                throw new CompletionException(exception);
-            }
-        }, executor);
+    public synchronized CompletableFuture<Map<String, ServiceRuntime>> execute() {
+        if (inFlightRefresh != null && !inFlightRefresh.isDone()) {
+            return inFlightRefresh;
+        }
+
+        var refresh = CompletableFuture.supplyAsync(this::loadSnapshot, executor);
+        inFlightRefresh = refresh;
+        refresh.whenComplete((result, error) -> clearCompletedRefresh(refresh));
+        return refresh;
+    }
+
+    private Map<String, ServiceRuntime> loadSnapshot() {
+        try {
+            return reader.readRuntime(project, services);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new CompletionException(exception);
+        } catch (Exception exception) {
+            throw new CompletionException(exception);
+        }
+    }
+
+    private synchronized void clearCompletedRefresh(
+            CompletableFuture<Map<String, ServiceRuntime>> completedRefresh
+    ) {
+        if (inFlightRefresh == completedRefresh) {
+            inFlightRefresh = null;
+        }
     }
 
     @Override

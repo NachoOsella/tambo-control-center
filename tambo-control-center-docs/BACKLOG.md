@@ -2,18 +2,18 @@
 
 ## P0: V1 core
 
-- [ ] Bootstrap Java project and TamboUI.
-- [ ] Main screen with services/details/logs/status panels.
-- [ ] Keyboard service selection.
-- [ ] Clean quit.
-- [ ] Compose file discovery walking upward from cwd.
+- [x] Bootstrap Java project and TamboUI.
+- [x] Main screen with services/details/logs/status panels.
+- [x] Keyboard service selection.
+- [x] Clean quit.
+- [x] Compose file discovery walking upward from cwd.
 - [ ] Docker Compose preflight.
-- [ ] `compose config --format json` adapter.
-- [ ] Render real services.
-- [ ] `compose ps --all --format json` adapter.
-- [ ] Runtime/health mapping.
-- [ ] Manual refresh.
-- [ ] Periodic runtime refresh.
+- [x] `compose config --format json` adapter.
+- [x] Render real services.
+- [x] `compose ps --all --format json` adapter.
+- [x] Runtime/health mapping.
+- [x] Manual refresh.
+- [x] Periodic runtime refresh.
 - [ ] Up selected service.
 - [ ] Stop selected service.
 - [ ] Restart selected service.
