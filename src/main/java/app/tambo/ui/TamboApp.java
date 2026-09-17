@@ -28,9 +28,15 @@ public final class TamboApp extends ToolkitApp {
                 detailsPanel().fill()
         ).spacing(1).percent(55);
 
+        var logs = standardPanel("Logs [selected: " + state.selectedService() + "]")
+                .id("logs")
+                .focusable()
+                .focusedBorderColor(CYAN)
+                .fill();
+
         return column(
                 overview,
-                standardPanel("Logs [selected: " + state.selectedService() + "]").fill(),
+                logs,
                 statusBar()
         ).spacing(1);
     }
@@ -48,7 +54,10 @@ public final class TamboApp extends ToolkitApp {
                 text("Service").dim().length(12),
                 text(state.selectedService()).fg(CYAN).bold().fill()
         );
-        return standardPanel("Details", service);
+        return standardPanel("Details", service)
+                .id("details")
+                .focusable()
+                .focusedBorderColor(CYAN);
     }
 
     private Panel standardPanel(String title, Element... children) {
@@ -67,7 +76,9 @@ public final class TamboApp extends ToolkitApp {
 
     private Element statusBar() {
         return row(
-                text(" ↑↓ j/k").fg(CYAN).bold(),
+                text("Tab").fg(CYAN).bold(),
+                text("focus").dim(),
+                text("↑↓ j/k").fg(CYAN).bold(),
                 text("select").dim(),
                 text("q").fg(CYAN).bold(),
                 text("quit").dim()
