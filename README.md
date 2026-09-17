@@ -3,7 +3,7 @@
 A Java terminal UI for inspecting and operating the Docker Compose project in the current repository.
 
 > [!WARNING]
-> Tambo is pre-release and is being implemented in small increments. The current runnable slice provides the TUI shell, Compose project discovery, and service definition loading. Runtime status, lifecycle actions, logs, and resource statistics are not available yet.
+> Tambo is pre-release and is being implemented in small increments. The current runnable slice provides the TUI shell, Compose project discovery, service definition loading, and an initial runtime snapshot. Lifecycle actions, logs, and resource statistics are not available yet.
 
 ## Why Tambo
 
@@ -25,7 +25,7 @@ The primary UI entity is a Compose **service**, not an individual container. Con
 | Compose file discovery | Available from the current directory and its parents |
 | Service list | Loaded from the effective Compose configuration |
 | Effective Compose configuration loading | Available |
-| Runtime and health observation | Planned |
+| Runtime and health observation | Available as the initial snapshot |
 | Start, stop, and restart actions | Planned |
 | Selected and all-service logs | Planned |
 | Stats, events, and resizable panels | Planned |
@@ -40,11 +40,11 @@ The current screen has three panels:
 ┌ Tambo | project ─────────────────────────────────────────────────────┐
 │ Services                    │ Details                                │
 │ ▸ bank                      │ Service bank                           │
-│   challenge                 │ Image alpine:3.22                      │
-│   gateway                   │                                        │
-│   postgres                  │                                        │
+│   challenge                 │ Image redis:7-alpine                   │
+│   gateway                   │ Runtime not-created                    │
+│   postgres                  │ Health not-configured                  │
 ├────────────────────────────┴─────────────────────────────────────────┤
-│ Logs [selected: gateway]                                               │
+│ Logs [selected: bank]                                                  │
 │                                                                       │
 ├───────────────────────────────────────────────────────────────────────┤
 │ Tab focus   ↑↓ j/k select   q quit                                    │
@@ -67,9 +67,8 @@ Selection stops at the first and last service. It does not wrap around.
 - JDK 21 or newer
 - Maven
 - A terminal that supports the TUI backend
-
 - Docker Compose must be available on `PATH`.
-- A running Docker daemon is not required for the current configuration-loading slice.
+- The Docker daemon must be accessible for runtime observation.
 
 ## Quick start
 
@@ -89,7 +88,7 @@ mvn exec:java -Dexec.mainClass=app.tambo.Main
 
 If no file is found, the application exits with an explanatory error instead of opening an empty dashboard.
 
-The application loads service names and images from `docker compose config --format json`. It does not start, stop, inspect runtime state, or stream logs yet.
+The application loads service definitions from `docker compose config --format json` and an initial runtime snapshot from `docker compose ps --all --format json`. It does not start, stop, refresh, or stream logs yet.
 
 ## Development fixture
 
@@ -119,7 +118,7 @@ The PostgreSQL credentials in this file are for local development only and must 
 - TamboUI JLine 3 terminal backend
 - JUnit Jupiter 5.13.4
 
-There is no Spring application, Docker SDK, or packaged executable. The planned Docker integration uses the Docker Compose CLI through Java process APIs rather than calling Docker from UI components.
+There is no Spring application, Docker SDK, or packaged executable. Docker integration uses the Docker Compose CLI through Java process APIs rather than calling Docker from UI components.
 
 ## Tests
 
@@ -128,6 +127,7 @@ The current tests cover the implemented foundation:
 - `ProjectLocatorTest`: supported filenames, parent-directory discovery, precedence, and missing files;
 - `ProjectContextTest`: path normalization and project-root validation;
 - `ComposeCliConfigReaderTest`: service and image mapping from Compose JSON;
+- `ComposeCliRuntimeReaderTest`: runtime, health, ports, exit codes, multiple instances, and missing services;
 - `ProcessRunnerTest`: output capture, exit codes, and timeout handling;
 - `UiStateTest`: service selection and boundary behavior.
 

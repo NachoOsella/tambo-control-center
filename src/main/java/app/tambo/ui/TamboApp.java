@@ -1,6 +1,8 @@
 package app.tambo.ui;
 
 import app.tambo.domain.service.ComposeService;
+import app.tambo.domain.service.PublishedPort;
+import app.tambo.domain.service.ServiceRuntime;
 import app.tambo.project.ProjectContext;
 
 import dev.tamboui.toolkit.app.ToolkitApp;
@@ -10,7 +12,9 @@ import dev.tamboui.toolkit.event.EventResult;
 import dev.tamboui.tui.event.KeyEvent;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static dev.tamboui.style.Color.CYAN;
 import static dev.tamboui.style.Color.DARK_GRAY;
@@ -21,10 +25,16 @@ import static dev.tamboui.toolkit.Toolkit.text;
 
 public final class TamboApp extends ToolkitApp {
     private final ProjectContext project;
+    private final Map<String, ServiceRuntime> runtimeByService;
     private UiState state;
 
-    public TamboApp(ProjectContext project, List<ComposeService> services) {
+    public TamboApp(
+            ProjectContext project,
+            List<ComposeService> services,
+            Map<String, ServiceRuntime> runtimeByService
+    ) {
         this.project = Objects.requireNonNull(project, "project");
+        this.runtimeByService = Map.copyOf(runtimeByService);
         this.state = new UiState(services, 0);
     }
 
@@ -62,6 +72,7 @@ public final class TamboApp extends ToolkitApp {
     }
 
     private Panel detailsPanel() {
+        var runtime = selectedRuntime();
         var details = column(
                 row(
                         text("Service").dim().length(12),
@@ -70,6 +81,26 @@ public final class TamboApp extends ToolkitApp {
                 row(
                         text("Image").dim().length(12),
                         text(state.selectedService().image().orElse("not specified")).fill()
+                ),
+                row(
+                        text("Runtime").dim().length(12),
+                        text(runtime.runtimeState().displayName()).fill()
+                ),
+                row(
+                        text("Health").dim().length(12),
+                        text(runtime.healthState().displayName()).fill()
+                ),
+                row(
+                        text("Containers").dim().length(12),
+                        text(runtime.containerCount()).fill()
+                ),
+                row(
+                        text("Ports").dim().length(12),
+                        text(formatPorts(runtime.publishedPorts())).fill()
+                ),
+                row(
+                        text("Exit code").dim().length(12),
+                        text(formatExitCode(runtime)).fill()
                 )
         ).spacing(1);
         return standardPanel("Details", details)
@@ -91,10 +122,40 @@ public final class TamboApp extends ToolkitApp {
         var rows = new Element[state.services().size()];
         for (int index = 0; index < state.services().size(); index++) {
             boolean selected = index == state.selectedIndex();
-            var service = text((selected ? "▸ " : "  ") + state.services().get(index).name());
-            rows[index] = selected ? service.fg(CYAN).bold() : service;
+            var service = state.services().get(index);
+            var name = text((selected ? "▸ " : "  ") + service.name()).fill();
+            var status = text(runtimeFor(service).runtimeState().displayName()).dim();
+            rows[index] = row(selected ? name.fg(CYAN).bold() : name, status);
         }
         return column(rows);
+    }
+
+    private ServiceRuntime selectedRuntime() {
+        return runtimeFor(state.selectedService());
+    }
+
+    private ServiceRuntime runtimeFor(ComposeService service) {
+        return runtimeByService.getOrDefault(service.name(), ServiceRuntime.notCreated());
+    }
+
+    private String formatPorts(List<PublishedPort> ports) {
+        if (ports.isEmpty()) {
+            return "none";
+        }
+        return ports.stream()
+                .map(this::formatPort)
+                .collect(Collectors.joining(", "));
+    }
+
+    private String formatPort(PublishedPort port) {
+        var host = port.host().isBlank() ? "*" : port.host();
+        return host + ":" + port.publishedPort() + " -> " + port.targetPort();
+    }
+
+    private String formatExitCode(ServiceRuntime runtime) {
+        return runtime.exitCode().isPresent()
+                ? Integer.toString(runtime.exitCode().getAsInt())
+                : "-";
     }
 
     private Element statusBar() {

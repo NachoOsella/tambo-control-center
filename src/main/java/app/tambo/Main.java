@@ -1,7 +1,9 @@
 package app.tambo;
 
 import app.tambo.domain.service.ComposeService;
+import app.tambo.domain.service.ServiceRuntime;
 import app.tambo.infrastructure.compose.ComposeCliConfigReader;
+import app.tambo.infrastructure.compose.ComposeCliRuntimeReader;
 import app.tambo.infrastructure.process.ProcessRunner;
 import app.tambo.project.ProjectLocator;
 import app.tambo.ui.TamboApp;
@@ -11,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 public final class Main {
@@ -28,22 +31,27 @@ public final class Main {
         }
 
         var projectContext = project.orElseThrow();
-        var configReader = new ComposeCliConfigReader(new ProcessRunner(), new ObjectMapper());
+        var processRunner = new ProcessRunner();
+        var objectMapper = new ObjectMapper();
+        var configReader = new ComposeCliConfigReader(processRunner, objectMapper);
+        var runtimeReader = new ComposeCliRuntimeReader(processRunner, objectMapper);
 
         List<ComposeService> services;
+        Map<String, ServiceRuntime> runtime;
         try {
             services = configReader.readServices(projectContext);
+            runtime = runtimeReader.readRuntime(projectContext, services);
         } catch (IOException | TimeoutException exception) {
-            System.err.println("Unable to load Compose configuration: " + exception.getMessage());
+            System.err.println("Unable to load Compose project: " + exception.getMessage());
             System.exit(1);
             return;
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            System.err.println("Unable to load Compose configuration: interrupted");
+            System.err.println("Unable to load Compose project: interrupted");
             System.exit(1);
             return;
         }
 
-        new TamboApp(projectContext, services).run();
+        new TamboApp(projectContext, services, runtime).run();
     }
 }
