@@ -14,7 +14,7 @@ public final class ProjectLocator {
             "docker-compose.yml"
     );
 
-    public Optional<Path> locate(Path startDirectory) {
+    public Optional<ProjectContext> locate(Path startDirectory) {
         Objects.requireNonNull(startDirectory, "startDirectory");
 
         var directory = startDirectory.toAbsolutePath().normalize();
@@ -26,7 +26,7 @@ public final class ProjectLocator {
             for (var filename : COMPOSE_FILENAMES) {
                 var composeFile = directory.resolve(filename);
                 if (Files.isRegularFile(composeFile)) {
-                    return Optional.of(composeFile);
+                    return Optional.of(new ProjectContext(directory, composeFile));
                 }
             }
             directory = directory.getParent();

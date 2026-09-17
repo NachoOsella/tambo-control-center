@@ -29,7 +29,8 @@ class ProjectLocatorTest {
 
         var result = locator.locate(projectDirectory);
 
-        assertEquals(composeFile, result.orElseThrow());
+        assertEquals(composeFile, result.orElseThrow().composeFile());
+        assertEquals(projectDirectory, result.orElseThrow().root());
     }
 
     @Test
@@ -39,7 +40,10 @@ class ProjectLocatorTest {
 
         var result = locator.locate(childDirectory);
 
-        assertEquals(composeFile, result.orElseThrow());
+        var context = result.orElseThrow();
+
+        assertEquals(composeFile, context.composeFile());
+        assertEquals(projectDirectory, context.root());
     }
 
     @Test
@@ -49,7 +53,7 @@ class ProjectLocatorTest {
 
         var result = locator.locate(projectDirectory);
 
-        assertEquals(preferredFile, result.orElseThrow());
+        assertEquals(preferredFile, result.orElseThrow().composeFile());
     }
 
     @Test
