@@ -27,8 +27,8 @@
 - [x] Up all.
 - [x] Stop all.
 - [x] Restart all.
-- [ ] Panel resizing by keyboard.
-- [ ] Narrow terminal layout.
+- [x] Panel resizing by keyboard.
+- [x] Narrow terminal layout.
 
 ## P1: hardening
 

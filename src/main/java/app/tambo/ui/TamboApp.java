@@ -62,6 +62,7 @@ public final class TamboApp extends ToolkitApp {
     private OperationStatus operationStatus = OperationStatus.IDLE;
     private String operationMessage = "";
     private LogViewport logViewport = LogViewport.atEnd();
+    private LayoutState layout = LayoutState.defaults();
     private ToolkitRunner.ScheduledAction runtimePolling;
 
     public TamboApp(
@@ -101,10 +102,23 @@ public final class TamboApp extends ToolkitApp {
 
     @Override
     protected Element render() {
-        var overview = row(
-                servicesPanel().percent(30),
-                detailsPanel().fill()
-        ).spacing(1).percent(55);
+        var terminalSize = runner().tuiRunner().terminal().size();
+        if (terminalSize.width() < 80 || terminalSize.height() < 24) {
+            return column(
+                    text("Terminal too small").fg(LIGHT_YELLOW).bold(),
+                    text("Minimum recommended size: 80x24").dim()
+            );
+        }
+
+        var overview = terminalSize.width() < 110
+                ? column(
+                        servicesPanel().percent(30),
+                        detailsPanel().fill()
+                ).spacing(1).percent(layout.overviewHeightPercent())
+                : row(
+                        servicesPanel().percent(layout.servicesWidthPercent()),
+                        detailsPanel().fill()
+                ).spacing(1).percent(layout.overviewHeightPercent());
 
         return column(
                 header(),
@@ -354,6 +368,8 @@ public final class TamboApp extends ToolkitApp {
                 text("selected/all").dim(),
                 text("f/G/c").fg(CYAN).bold(),
                 text("follow/end/clear").dim(),
+                text("C-h/l C-j/k").fg(CYAN).bold(),
+                text("resize").dim(),
                 text("q").fg(CYAN).bold(),
                 text("quit").dim(),
                 text("").fill(),
@@ -382,6 +398,24 @@ public final class TamboApp extends ToolkitApp {
     private EventResult handleGlobalEvent(Event event) {
         if (!(event instanceof KeyEvent keyEvent)) {
             return EventResult.UNHANDLED;
+        }
+        if (keyEvent.hasCtrl()) {
+            if (keyEvent.isChar('h')) {
+                layout = layout.narrowerServices();
+                return EventResult.HANDLED;
+            }
+            if (keyEvent.isChar('l')) {
+                layout = layout.widerServices();
+                return EventResult.HANDLED;
+            }
+            if (keyEvent.isChar('j')) {
+                layout = layout.tallerOverview();
+                return EventResult.HANDLED;
+            }
+            if (keyEvent.isChar('k')) {
+                layout = layout.shorterOverview();
+                return EventResult.HANDLED;
+            }
         }
         if (keyEvent.isChar('u')) {
             return runSelectedServiceOperation(ServiceOperation.UP);

@@ -28,13 +28,14 @@ The primary UI entity is a Compose **service**, not an individual container. Con
 | Runtime and health observation | Refreshed every five seconds and manually with `g` |
 | Start, stop, and restart actions | Available for selected and all services |
 | Selected and all-service logs | Available with `l` toggle |
-| Stats, events, and resizable panels | Planned |
+| Stats and events | Planned |
+| Resizable panels and narrow layout | Available |
 
 The repository is intentionally not a complete Docker dashboard yet. The README describes the current implementation separately from the target design so that planned behavior is not mistaken for an available feature.
 
 ## Current UI
 
-The current screen has a global header, three panels, and a contextual footer. The header summarizes the project and observed runtime counts.
+The current screen has a global header, three panels, and a contextual footer. The header summarizes the project and observed runtime counts. On narrow terminals, Services and Details stack vertically.
 
 ```text
 ┌ Tambo | project ─────────────────────────────────────────────────────┐
@@ -66,6 +67,8 @@ The current screen has a global header, three panels, and a contextual footer. T
 | `f` | Toggle log follow while Logs is focused |
 | `G` | Jump to the newest log line |
 | `c` | Clear the local log buffer |
+| `Ctrl+h` / `Ctrl+l` | Resize the Services column |
+| `Ctrl+j` / `Ctrl+k` | Resize the overview height |
 | `q` | Quit |
 
 Selection stops at the first and last service. It does not wrap around.
