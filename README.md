@@ -34,20 +34,20 @@ The repository is intentionally not a complete Docker dashboard yet. The README 
 
 ## Current UI
 
-The current screen has three panels:
+The current screen has a global header, three panels, and a contextual footer. The header summarizes the project and observed runtime counts.
 
 ```text
 ┌ Tambo | project ─────────────────────────────────────────────────────┐
-│ Services                    │ Details                                │
-│ ▸ bank                      │ Service bank                           │
-│   challenge                 │ Image redis:7-alpine                   │
-│   gateway                   │ Runtime not-created                    │
-│   postgres                  │ Health not-configured                  │
+│ 󰏗 Services · 4             │ 󰒓 Details · bank                       │
+│ ▸ bank             󰝦 ...    │ Service     bank                       │
+│   challenge        󰝦 ...    │ Image       redis:7-alpine             │
+│   gateway          󰝦 ...    │ Runtime     not-created                 │
+│   postgres         󰝦 ...    │ Health      not-configured               │
 ├────────────────────────────┴─────────────────────────────────────────┤
-│ Logs [selected: bank]                                                  │
+│ 󰆍 Logs · bank                                                        │
 │                                                                       │
 ├───────────────────────────────────────────────────────────────────────┤
-│ Tab focus   ↑↓ j/k select   q quit                                    │
+│ Tab focus   ↑↓ j/k select   u/s/r service   U/S/R all   g refresh   q quit │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 

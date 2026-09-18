@@ -10,11 +10,14 @@ import app.tambo.application.service.RunServiceOperation;
 import app.tambo.application.service.ServiceOperation;
 import app.tambo.domain.service.ComposeService;
 import app.tambo.domain.service.PublishedPort;
+import app.tambo.domain.service.RuntimeState;
 import app.tambo.domain.service.ServiceRuntime;
 import app.tambo.project.ProjectContext;
 
+import dev.tamboui.style.Color;
 import dev.tamboui.toolkit.app.ToolkitApp;
 import dev.tamboui.toolkit.app.ToolkitRunner;
+import dev.tamboui.toolkit.elements.TextElement;
 import dev.tamboui.toolkit.element.Element;
 import dev.tamboui.toolkit.elements.Panel;
 import dev.tamboui.toolkit.event.EventResult;
@@ -31,6 +34,7 @@ import java.util.stream.Collectors;
 
 import static dev.tamboui.style.Color.CYAN;
 import static dev.tamboui.style.Color.DARK_GRAY;
+import static dev.tamboui.style.Color.LIGHT_BLUE;
 import static dev.tamboui.style.Color.LIGHT_GREEN;
 import static dev.tamboui.style.Color.LIGHT_RED;
 import static dev.tamboui.style.Color.LIGHT_YELLOW;
@@ -42,6 +46,7 @@ import static dev.tamboui.toolkit.Toolkit.text;
 public final class TamboApp extends ToolkitApp {
     private static final Duration RUNTIME_REFRESH_INTERVAL = Duration.ofSeconds(5);
     private static final int VISIBLE_LOG_LINES = 12;
+    private static final Color SELECTED_BACKGROUND = Color.rgb(61, 55, 31);
 
     private final ProjectContext project;
     private final RefreshRuntimeSnapshot refreshRuntime;
@@ -102,14 +107,53 @@ public final class TamboApp extends ToolkitApp {
         ).spacing(1).percent(55);
 
         return column(
+                header(),
                 overview,
                 logsPanel(),
                 statusBar()
         ).spacing(1);
     }
 
+    private Element header() {
+        return row(
+                text("󰡨 Tambo").fg(CYAN).bold(),
+                text("│").dim(),
+                text("Project:").dim(),
+                text(projectName()).fg(LIGHT_GREEN).bold(),
+                text("").fill(),
+                connectionSummary()
+        ).length(1);
+    }
+
+    private Element connectionSummary() {
+        var connected = refreshStatus != RefreshStatus.FAILED;
+        var connection = text(connected ? "󰌘 Docker Connected" : "󰅙 Docker Unavailable")
+                .fg(connected ? LIGHT_GREEN : LIGHT_RED);
+        var services = text("󰏗 " + state.services().size() + " services").fg(LIGHT_BLUE);
+        var running = text("󰐊 " + countRuntime(RuntimeState.RUNNING) + " running")
+                .fg(LIGHT_GREEN);
+        var stopped = text("󰓛 " + countRuntime(RuntimeState.EXITED) + " stopped")
+                .fg(LIGHT_RED);
+        return row(
+                connection,
+                text("│").dim(),
+                services,
+                text("│").dim(),
+                running,
+                text("│").dim(),
+                stopped
+        ).spacing(1);
+    }
+
+    private long countRuntime(RuntimeState runtimeState) {
+        return state.services().stream()
+                .map(this::runtimeFor)
+                .filter(runtime -> runtime.runtimeState() == runtimeState)
+                .count();
+    }
+
     private Panel servicesPanel() {
-        return standardPanel("Services", serviceList())
+        return standardPanel("󰏗 Services · " + state.services().size(), serviceList())
                 .id("services")
                 .focusable()
                 .focusedBorderColor(CYAN)
@@ -181,6 +225,10 @@ public final class TamboApp extends ToolkitApp {
                         text(runtime.healthState().displayName()).fill()
                 ),
                 row(
+                        text("Container").dim().length(12),
+                        text(formatContainerNames(runtime)).fill()
+                ),
+                row(
                         text("Containers").dim().length(12),
                         text(runtime.containerCount()).fill()
                 ),
@@ -193,7 +241,7 @@ public final class TamboApp extends ToolkitApp {
                         text(formatExitCode(runtime)).fill()
                 )
         ).spacing(1);
-        return standardPanel("Details", details)
+        return standardPanel("󰒓 Details · " + state.selectedService().name(), details)
                 .id("details")
                 .focusable()
                 .focusedBorderColor(CYAN);
@@ -213,11 +261,45 @@ public final class TamboApp extends ToolkitApp {
         for (int index = 0; index < state.services().size(); index++) {
             boolean selected = index == state.selectedIndex();
             var service = state.services().get(index);
+            var runtime = runtimeFor(service);
             var name = text((selected ? "▸ " : "  ") + service.name()).fill();
-            var status = text(runtimeFor(service).runtimeState().displayName()).dim();
-            rows[index] = row(selected ? name.fg(CYAN).bold() : name, status);
+            var status = serviceStatus(runtime);
+            if (selected) {
+                name = name.fg(CYAN).bold().bg(SELECTED_BACKGROUND);
+                status = status.bg(SELECTED_BACKGROUND);
+            }
+            rows[index] = row(name, status);
         }
         return column(rows);
+    }
+
+    private TextElement serviceStatus(ServiceRuntime runtime) {
+        var state = runtime.runtimeState();
+        var icon = switch (state) {
+            case RUNNING -> "󰐊";
+            case EXITED, DEAD -> "󰓛";
+            case NOT_CREATED -> "󰝦";
+            default -> "󰅙";
+        };
+        return text(icon + " " + state.displayName()).fg(runtimeColor(state));
+    }
+
+    private Color runtimeColor(RuntimeState state) {
+        return switch (state) {
+            case RUNNING -> LIGHT_GREEN;
+            case EXITED, DEAD -> LIGHT_RED;
+            case NOT_CREATED -> DARK_GRAY;
+            default -> LIGHT_YELLOW;
+        };
+    }
+
+    private String formatContainerNames(ServiceRuntime runtime) {
+        if (runtime.instances().isEmpty()) {
+            return "none";
+        }
+        return runtime.instances().stream()
+                .map(instance -> instance.name())
+                .collect(Collectors.joining(", "));
     }
 
     private ServiceRuntime selectedRuntime() {
