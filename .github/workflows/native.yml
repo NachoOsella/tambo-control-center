@@ -1,0 +1,36 @@
+name: Native Linux build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: "21"
+          distribution: graalvm
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: maven
+
+      - name: Run tests
+        run: mvn test
+
+      - name: Build native executable
+        run: mvn -Pnative package
+
+      - name: Upload native executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: tambo-linux-x86_64
+          path: target/tambo
+          if-no-files-found: error
