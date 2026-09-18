@@ -82,6 +82,7 @@ public final class TamboApp extends ToolkitApp {
     private boolean helpVisible;
     private boolean errorOverlayVisible;
     private String lastError = "";
+    private ServiceOperation pendingConfirmation;
     private boolean filterActive;
     private String filterQuery = "";
     private ToolkitRunner.ScheduledAction runtimePolling;
@@ -154,6 +155,9 @@ public final class TamboApp extends ToolkitApp {
         if (errorOverlayVisible) {
             return errorPanel();
         }
+        if (pendingConfirmation != null) {
+            return confirmationPanel();
+        }
 
         var terminalSize = runner().tuiRunner().terminal().size();
         if (terminalSize.width() < 80 || terminalSize.height() < 24) {
@@ -192,7 +196,10 @@ public final class TamboApp extends ToolkitApp {
                         text(""),
                         text("Lifecycle").fg(CYAN).bold(),
                         text("u / s / r       up, stop, restart selected"),
+                        text("b / x           build or recreate selected"),
                         text("U / S / R       up, stop, restart all"),
+                        text("B / X           build or recreate all"),
+                        text("D               down project (confirm)"),
                         text(""),
                         text("Runtime and logs").fg(CYAN).bold(),
                         text("g               refresh runtime"),
@@ -219,6 +226,15 @@ public final class TamboApp extends ToolkitApp {
                         text("Press e or Esc to close").dim()
                 ).spacing(1)
         ).borderColor(LIGHT_RED).padding(1).fill();
+    }
+
+    private Element confirmationPanel() {
+        return standardPanel("󰀪 Confirm project action",
+                column(
+                        text("Down will stop and remove the Compose project.").fg(LIGHT_YELLOW),
+                        text("Press y to continue or n/Esc to cancel").dim()
+                ).spacing(1)
+        ).borderColor(LIGHT_YELLOW).padding(1).fill();
     }
 
     private Element header() {
@@ -610,6 +626,8 @@ public final class TamboApp extends ToolkitApp {
                 text("select").dim(),
                 text("u/s/r").fg(CYAN).bold(),
                 text("up/stop/restart").dim(),
+                text("b/x").fg(CYAN).bold(),
+                text("build/recreate").dim(),
                 text("U/S/R").fg(CYAN).bold(),
                 text("all").dim(),
                 text("g").fg(CYAN).bold(),
@@ -620,9 +638,10 @@ public final class TamboApp extends ToolkitApp {
                 text(filterActive ? filterQuery : "filter").dim(),
                 text("f/G/c").fg(CYAN).bold(),
                 text("follow/end/clear").dim(),
+                text("D").fg(CYAN).bold(),
+                text("down").dim(),
                 text("e").fg(CYAN).bold(),
-                text("details").dim(),
-                text("C-h/l C-j/k").fg(CYAN).bold(),
+                text("details").dim(),                text("C-h/l C-j/k").fg(CYAN).bold(),
                 text("resize").dim(),
                 text("q").fg(CYAN).bold(),
                 text("quit").dim(),
@@ -676,9 +695,21 @@ public final class TamboApp extends ToolkitApp {
             helpVisible = !helpVisible;
             return EventResult.HANDLED;
         }
-        if (keyEvent.isCancel() && (helpVisible || errorOverlayVisible)) {
+        if (keyEvent.isCancel() && (helpVisible || errorOverlayVisible || pendingConfirmation != null)) {
             helpVisible = false;
             errorOverlayVisible = false;
+            pendingConfirmation = null;
+            return EventResult.HANDLED;
+        }
+        if (pendingConfirmation != null) {
+            if (keyEvent.isChar('y')) {
+                var operation = pendingConfirmation;
+                pendingConfirmation = null;
+                return runGlobalServiceOperation(operation);
+            }
+            if (keyEvent.isChar('n')) {
+                pendingConfirmation = null;
+            }
             return EventResult.HANDLED;
         }
         if (keyEvent.isChar('e') && !lastError.isBlank()) {
@@ -723,6 +754,12 @@ public final class TamboApp extends ToolkitApp {
         if (keyEvent.isChar('r')) {
             return runSelectedServiceOperation(ServiceOperation.RESTART);
         }
+        if (keyEvent.isChar('b')) {
+            return runSelectedServiceOperation(ServiceOperation.UP_BUILD);
+        }
+        if (keyEvent.isChar('x')) {
+            return runSelectedServiceOperation(ServiceOperation.RECREATE);
+        }
         if (keyEvent.isChar('U')) {
             return runGlobalServiceOperation(ServiceOperation.UP);
         }
@@ -731,6 +768,16 @@ public final class TamboApp extends ToolkitApp {
         }
         if (keyEvent.isChar('R')) {
             return runGlobalServiceOperation(ServiceOperation.RESTART);
+        }
+        if (keyEvent.isChar('B')) {
+            return runGlobalServiceOperation(ServiceOperation.UP_BUILD);
+        }
+        if (keyEvent.isChar('X')) {
+            return runGlobalServiceOperation(ServiceOperation.RECREATE);
+        }
+        if (keyEvent.isChar('D')) {
+            pendingConfirmation = ServiceOperation.DOWN;
+            return EventResult.HANDLED;
         }
         if (keyEvent.isChar('g')) {
             return requestRuntimeRefresh();

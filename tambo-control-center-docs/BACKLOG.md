@@ -52,9 +52,9 @@
 - [ ] Copy log line.
 - [x] Show service dependencies.
 - [x] Profiles view.
-- [ ] `up --build` action.
-- [ ] recreate action.
-- [ ] optional down action with confirmation.
+- [x] `up --build` action.
+- [x] recreate action.
+- [x] optional down action with confirmation.
 - [ ] save layout ratios.
 - [ ] mouse resize if worth it.
 - [ ] events panel.

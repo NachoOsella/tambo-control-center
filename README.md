@@ -64,7 +64,11 @@ The current screen has a global header, Services, Details, Resource Usage, and L
 | `u` | Create or start the selected service |
 | `s` | Stop the selected service |
 | `r` | Restart the selected service |
+| `b` | Build and start the selected service |
+| `x` | Recreate the selected service |
 | `U` / `S` / `R` | Start, stop, or restart all services |
+| `B` / `X` | Build or recreate all services |
+| `D` | Bring the Compose project down after confirmation |
 | `g` | Refresh runtime and health state |
 | `/` | Filter services by name |
 | `f` | Toggle log follow while Logs is focused |

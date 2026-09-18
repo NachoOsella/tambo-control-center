@@ -2,8 +2,11 @@ package app.tambo.application.service;
 
 public enum ServiceOperation {
     UP("up", "starting", "started"),
+    UP_BUILD("up --build", "building", "built"),
     STOP("stop", "stopping", "stopped"),
-    RESTART("restart", "restarting", "restarted");
+    RESTART("restart", "restarting", "restarted"),
+    RECREATE("recreate", "recreating", "recreated"),
+    DOWN("down", "bringing down", "down");
 
     private final String commandName;
     private final String activeLabel;

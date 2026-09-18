@@ -67,11 +67,26 @@ public final class ComposeCliServiceLifecycle implements ServiceLifecycleGateway
     }
 
     private List<String> arguments(OperationTarget target, ServiceOperation operation) {
+        var composeCommand = switch (operation) {
+            case UP_BUILD, RECREATE -> "up";
+            default -> operation.commandName();
+        };
         var arguments = new ArrayList<>(List.of(
-                "docker", "compose", operation.commandName()
+                "docker", "compose", composeCommand
         ));
-        if (operation == ServiceOperation.UP) {
-            arguments.add("-d");
+        switch (operation) {
+            case UP, RECREATE -> arguments.addAll(List.of("-d"));
+            case UP_BUILD -> arguments.addAll(List.of("-d", "--build"));
+            case DOWN -> {
+                arguments.add("--remove-orphans");
+                return arguments;
+            }
+            case STOP, RESTART -> {
+                // Compose adds the service name below.
+            }
+        }
+        if (operation == ServiceOperation.RECREATE) {
+            arguments.add("--force-recreate");
         }
         target.serviceName().ifPresent(arguments::add);
         return arguments;
