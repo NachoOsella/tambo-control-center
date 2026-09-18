@@ -201,15 +201,13 @@ src/
 │   └── infrastructure/      Compose CLI and process execution adapters
 └── test/java/app/tambo/     Unit tests for the implemented slices
 
-tambo-control-center-docs/
-├── docs/                    Product, architecture, UX, and implementation notes
-├── adrs/                    Accepted architecture decisions
+docs/
+├── guide/                   Product, architecture, UX, and implementation notes
+├── adr/                     Accepted architecture decisions
 ├── examples/                Example Compose file and UI mockups
 ├── BACKLOG.md               Prioritized implementation backlog
 └── README.md                Documentation index
 ```
-
-Some empty packages remain as placeholders for future increments. They are not evidence that those layers are already implemented.
 
 ## Design direction
 
@@ -226,15 +224,15 @@ These are target decisions for the upcoming increments. They do not imply that t
 
 ## Documentation
 
-The project notebook is in [`tambo-control-center-docs`](tambo-control-center-docs/):
+The project notebook is in [`docs`](docs/):
 
-- [Decisions](tambo-control-center-docs/docs/00-decisions.md)
-- [Product scope](tambo-control-center-docs/docs/01-product.md)
-- [Architecture](tambo-control-center-docs/docs/02-architecture.md)
-- [Compose integration](tambo-control-center-docs/docs/05-compose-integration.md)
-- [TUI and UX](tambo-control-center-docs/docs/06-tui-ux.md)
-- [Roadmap](tambo-control-center-docs/docs/11-roadmap.md)
-- [Backlog](tambo-control-center-docs/BACKLOG.md)
-- [Architecture decision records](tambo-control-center-docs/adrs/)
+- [Decisions](docs/guide/00-decisions.md)
+- [Product scope](docs/guide/01-product.md)
+- [Architecture](docs/guide/02-architecture.md)
+- [Compose integration](docs/guide/05-compose-integration.md)
+- [TUI and UX](docs/guide/06-tui-ux.md)
+- [Roadmap](docs/guide/11-roadmap.md)
+- [Backlog](docs/BACKLOG.md)
+- [Architecture decision records](docs/adr/)
 
 The project is also being used to learn modern Java through small, reviewable slices. Each increment should leave the code understandable and runnable before the next one begins.

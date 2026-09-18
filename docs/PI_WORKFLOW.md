@@ -77,8 +77,8 @@ Report:
 Para arrancar Milestone 0:
 
 ```text
-Read the project documentation first, especially README.md, docs/00-decisions.md,
-docs/02-architecture.md, docs/06-tui-ux.md and docs/11-roadmap.md.
+Read the project documentation first, especially README.md, guide/00-decisions.md,
+guide/02-architecture.md, guide/06-tui-ux.md and guide/11-roadmap.md.
 
 We are starting Milestone 0 only.
 Do not integrate Docker yet.

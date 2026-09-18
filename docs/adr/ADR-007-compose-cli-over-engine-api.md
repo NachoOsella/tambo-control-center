@@ -1,4 +1,4 @@
-# ADR-006: Keep the Compose CLI as the runtime boundary
+# ADR-007: Keep the Compose CLI as the runtime boundary
 
 Status: Accepted
 

@@ -56,23 +56,23 @@ Docker Compose ya resuelve detalles que no vale la pena reimplementar: interpola
 
 Esto también deja un proyecto muy bueno para aprender Java: `ProcessBuilder`, lifecycle de procesos, streams, JSON, records, sealed interfaces, concurrencia, virtual threads, modelado de estados, manejo de errores, testing de adapters y diseño de fronteras.
 
-## Qué contiene este ZIP
+## Contenido
 
-- `docs/00-decisions.md`: decisiones tomadas y temas que todavía no conviene cerrar.
-- `docs/01-product.md`: alcance y requisitos del producto.
-- `docs/02-architecture.md`: arquitectura propuesta y límites entre capas.
-- `docs/03-domain-model.md`: modelo de dominio.
-- `docs/04-state-events.md`: estados, eventos y transiciones.
-- `docs/05-compose-integration.md`: integración concreta con Docker Compose.
-- `docs/06-tui-ux.md`: diseño de pantalla, navegación y paneles ajustables.
-- `docs/07-logs-stats.md`: logs, stats y consumo de recursos.
-- `docs/08-concurrency.md`: concurrencia, streams y cancelación.
-- `docs/09-errors-lifecycle.md`: errores y lifecycle.
-- `docs/10-testing.md`: estrategia de tests.
-- `docs/11-roadmap.md`: milestones de implementación.
-- `docs/12-java-learning.md`: cómo usar el proyecto para aprender Java sin escribir todo a mano.
-- `docs/13-kafka-future.md`: cómo podría crecer hacia un explorador Kafka sin contaminar la V1.
-- `adrs/`: decisiones arquitectónicas registradas individualmente.
+- `guide/00-decisions.md`: decisiones tomadas y temas que todavía no conviene cerrar.
+- `guide/01-product.md`: alcance y requisitos del producto.
+- `guide/02-architecture.md`: arquitectura propuesta y límites entre capas.
+- `guide/03-domain-model.md`: modelo de dominio.
+- `guide/04-state-events.md`: estados, eventos y transiciones.
+- `guide/05-compose-integration.md`: integración concreta con Docker Compose.
+- `guide/06-tui-ux.md`: diseño de pantalla, navegación y paneles ajustables.
+- `guide/07-logs-stats.md`: logs, stats y consumo de recursos.
+- `guide/08-concurrency.md`: concurrencia, streams y cancelación.
+- `guide/09-errors-lifecycle.md`: errores y lifecycle.
+- `guide/10-testing.md`: estrategia de tests.
+- `guide/11-roadmap.md`: milestones de implementación.
+- `guide/12-java-learning.md`: cómo usar el proyecto para aprender Java sin escribir todo a mano.
+- `guide/13-kafka-future.md`: cómo podría crecer hacia un explorador Kafka sin contaminar la V1.
+- `adr/`: decisiones arquitectónicas registradas individualmente.
 - `examples/`: Compose de ejemplo y mockups.
 - `PI_WORKFLOW.md`: reglas propuestas para trabajar con un coding agent sin delegarle tus decisiones.
 - `BACKLOG.md`: backlog priorizado.
@@ -80,13 +80,13 @@ Esto también deja un proyecto muy bueno para aprender Java: `ProcessBuilder`, l
 
 ## Orden recomendado de lectura
 
-1. `docs/00-decisions.md`
-2. `docs/01-product.md`
-3. `docs/02-architecture.md`
-4. `docs/03-domain-model.md`
-5. `docs/05-compose-integration.md`
-6. `docs/06-tui-ux.md`
-7. `docs/11-roadmap.md`
+1. `guide/00-decisions.md`
+2. `guide/01-product.md`
+3. `guide/02-architecture.md`
+4. `guide/03-domain-model.md`
+5. `guide/05-compose-integration.md`
+6. `guide/06-tui-ux.md`
+7. `guide/11-roadmap.md`
 8. `PI_WORKFLOW.md`
 
 No hace falta implementar toda esta documentación literalmente. Parte del objetivo del proyecto es que las decisiones cambien cuando el código demuestre que una abstracción no sirve. Los ADR existen para hacer esos cambios explícitos, no para congelar una arquitectura prematura.

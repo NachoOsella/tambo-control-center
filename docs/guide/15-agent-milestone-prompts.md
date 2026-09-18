@@ -5,7 +5,8 @@ Estos prompts están pensados para que el agente implemente y vos sigas tomando 
 ## Milestone 0: TamboUI spike
 
 ```text
-Read README.md, docs/00-decisions.md, docs/06-tui-ux.md and docs/11-roadmap.md.
+Read docs/README.md, docs/guide/00-decisions.md, docs/guide/06-tui-ux.md and
+docs/guide/11-roadmap.md.
 
 We are implementing Milestone 0 only. Do not add Docker integration.
 
