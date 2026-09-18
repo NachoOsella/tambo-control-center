@@ -5,9 +5,9 @@ import app.tambo.application.logs.LogMode;
 import app.tambo.application.logs.LogScope;
 import app.tambo.application.logs.LogsController;
 import app.tambo.application.service.LifecycleResult;
+import app.tambo.application.service.OperationTarget;
 import app.tambo.application.service.RefreshResourceStats;
 import app.tambo.application.service.RefreshRuntimeSnapshot;
-import app.tambo.application.service.OperationTarget;
 import app.tambo.application.service.RunServiceOperation;
 import app.tambo.application.service.ServiceOperation;
 import app.tambo.domain.service.ComposeService;
@@ -21,9 +21,9 @@ import app.tambo.project.ProjectContext;
 import dev.tamboui.style.Color;
 import dev.tamboui.toolkit.app.ToolkitApp;
 import dev.tamboui.toolkit.app.ToolkitRunner;
-import dev.tamboui.toolkit.elements.TextElement;
 import dev.tamboui.toolkit.element.Element;
 import dev.tamboui.toolkit.elements.Panel;
+import dev.tamboui.toolkit.elements.TextElement;
 import dev.tamboui.toolkit.event.EventResult;
 import dev.tamboui.tui.event.Event;
 import dev.tamboui.tui.event.KeyEvent;
@@ -52,6 +52,7 @@ import static dev.tamboui.toolkit.Toolkit.text;
 public final class TamboApp extends ToolkitApp {
     private static final Duration RUNTIME_REFRESH_INTERVAL = Duration.ofSeconds(5);
     private static final int VISIBLE_LOG_LINES = 12;
+    private static final int DETAIL_LABEL_WIDTH = 16;
     private static final Color SELECTED_BACKGROUND = Color.rgb(61, 55, 31);
 
     private final ProjectContext project;
@@ -299,51 +300,68 @@ public final class TamboApp extends ToolkitApp {
             case IDLE -> "waiting";
             case REFRESHING -> "refreshing";
             case SUCCEEDED -> "live";
-            case FAILED -> "failed";
+            case FAILED -> statsMessage.isBlank() ? "failed" : "failed: " + compact(statsMessage);
         };
     }
 
     private Panel detailsPanel() {
+        var service = state.selectedService();
         var runtime = selectedRuntime();
         var details = column(
                 row(
-                        text("Service").dim().length(12),
-                        text(state.selectedService().name()).fg(CYAN).bold().fill()
+                        text("Service").dim().length(DETAIL_LABEL_WIDTH),
+                        text(service.name()).fg(CYAN).bold().fill()
                 ),
                 row(
-                        text("Image").dim().length(12),
-                        text(state.selectedService().image().orElse("not specified")).fill()
+                        text("Image").dim().length(DETAIL_LABEL_WIDTH),
+                        text(service.image().orElse("not specified")).fill()
                 ),
                 row(
-                        text("Runtime").dim().length(12),
+                        text("Runtime").dim().length(DETAIL_LABEL_WIDTH),
                         text(runtime.runtimeState().displayName()).fill()
                 ),
                 row(
-                        text("Operation").dim().length(12),
+                        text("Operation").dim().length(DETAIL_LABEL_WIDTH),
                         text(selectedOperation()).fill()
                 ),
                 row(
-                        text("Health").dim().length(12),
+                        text("Health").dim().length(DETAIL_LABEL_WIDTH),
                         text(runtime.healthState().displayName()).fill()
                 ),
                 row(
-                        text("Container").dim().length(12),
+                        text("Container").dim().length(DETAIL_LABEL_WIDTH),
                         text(formatContainerNames(runtime)).fill()
                 ),
                 row(
-                        text("Containers").dim().length(12),
+                        text("Containers").dim().length(DETAIL_LABEL_WIDTH),
                         text(runtime.containerCount()).fill()
                 ),
                 row(
-                        text("Ports").dim().length(12),
+                        text("Ports").dim().length(DETAIL_LABEL_WIDTH),
                         text(formatPorts(runtime.publishedPorts())).fill()
                 ),
                 row(
-                        text("Exit code").dim().length(12),
+                        text("Network").dim().length(DETAIL_LABEL_WIDTH),
+                        text(formatList(service.networks())).fill()
+                ),
+                row(
+                        text("Restart policy").dim().length(DETAIL_LABEL_WIDTH),
+                        text(service.restartPolicy().orElse("not specified")).fill()
+                ),
+                row(
+                        text("Environment").dim().length(DETAIL_LABEL_WIDTH),
+                        text(formatEnvironment(service.environmentVariables())).fill()
+                ),
+                row(
+                        text("Volumes").dim().length(DETAIL_LABEL_WIDTH),
+                        text(formatVolumes(service.volumes())).fill()
+                ),
+                row(
+                        text("Exit code").dim().length(DETAIL_LABEL_WIDTH),
                         text(formatExitCode(runtime)).fill()
                 )
         ).spacing(0);
-        return standardPanel("󰒓 Details · " + state.selectedService().name(), details)
+        return standardPanel("󰒓 Details · " + service.name(), details)
                 .id("details")
                 .focusable()
                 .focusedBorderColor(CYAN);
@@ -402,6 +420,25 @@ public final class TamboApp extends ToolkitApp {
         return runtime.instances().stream()
                 .map(instance -> instance.name())
                 .collect(Collectors.joining(", "));
+    }
+
+    private String formatList(List<String> values) {
+        return values.isEmpty() ? "none" : String.join(", ", values);
+    }
+
+    private String formatEnvironment(List<String> variables) {
+        if (variables.isEmpty()) {
+            return "none";
+        }
+        return variables.size() + " variables (" + String.join(", ", variables) + ")";
+    }
+
+    private String formatVolumes(List<String> volumes) {
+        if (volumes.isEmpty()) {
+            return "none";
+        }
+        var noun = volumes.size() == 1 ? "volume" : "volumes";
+        return volumes.size() + " " + noun + " (" + String.join(", ", volumes) + ")";
     }
 
     private ServiceRuntime selectedRuntime() {

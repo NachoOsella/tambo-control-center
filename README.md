@@ -36,7 +36,7 @@ The repository is intentionally not a complete Docker dashboard yet. The README 
 
 ## Current UI
 
-The current screen has a global header, Services, Details, Resource Usage, and Logs panels, plus a contextual footer. The header summarizes the project and observed runtime counts. On narrow terminals, the upper panels stack vertically.
+The current screen has a global header, Services, Details, Resource Usage, and Logs panels, plus a contextual footer. Details includes Compose metadata such as networks, environment variable names, volumes, and restart policy. The header summarizes the project and observed runtime counts. On narrow terminals, the upper panels stack vertically.
 
 ```text
 ┌ Tambo | project ─────────────────────────────────────────────────────┐
@@ -138,7 +138,7 @@ The current tests cover the implemented foundation:
 
 - `ProjectLocatorTest`: supported filenames, parent-directory discovery, precedence, and missing files;
 - `ProjectContextTest`: path normalization and project-root validation;
-- `ComposeCliConfigReaderTest`: service and image mapping from Compose JSON;
+- `ComposeCliConfigReaderTest`: service, image, network, environment, volume, and restart-policy mapping from Compose JSON;
 - `ComposeCliRuntimeReaderTest`: runtime, health, ports, exit codes, multiple instances, and missing services;
 - `RefreshRuntimeSnapshotTest`: asynchronous results, failures, and overlapping refresh requests;
 - `RunServiceOperationTest`: asynchronous lifecycle execution and individual/global conflict rejection;

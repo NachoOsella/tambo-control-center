@@ -43,6 +43,39 @@ class ComposeCliConfigReaderTest {
     }
 
     @Test
+    void readsServiceMetadataForDetails() throws Exception {
+        var json = """
+                {
+                  "services": {
+                    "database": {
+                      "image": "postgres:17-alpine",
+                      "restart": "unless-stopped",
+                      "environment": {
+                        "POSTGRES_DB": "demo",
+                        "POSTGRES_USER": "demo"
+                      },
+                      "networks": {
+                        "default": null,
+                        "backend": null
+                      },
+                      "volumes": [
+                        {"type": "volume", "source": "database_data", "target": "/var/lib/postgresql/data"}
+                      ]
+                    }
+                  }
+                }
+                """;
+
+        var service = reader.parseServices(json).getFirst();
+
+        assertEquals(Optional.of("postgres:17-alpine"), service.image());
+        assertEquals(Optional.of("unless-stopped"), service.restartPolicy());
+        assertEquals(List.of("default", "backend"), service.networks());
+        assertEquals(List.of("POSTGRES_DB", "POSTGRES_USER"), service.environmentVariables());
+        assertEquals(List.of("database_data"), service.volumes());
+    }
+
+    @Test
     void rejectsConfigWithoutServices() {
         assertThrows(IOException.class, () -> reader.parseServices("{}"));
     }

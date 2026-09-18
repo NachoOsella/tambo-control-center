@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -46,7 +47,11 @@ public final class ComposeCliConfigReader {
     }
 
     List<ComposeService> parseServices(String json) throws IOException {
-        JsonNode services = objectMapper.readTree(json).path("services");
+        var root = objectMapper.readTree(json);
+        if (root == null || !root.isObject()) {
+            throw new IOException("Compose config must be a JSON object");
+        }
+        JsonNode services = root.path("services");
         if (!services.isObject()) {
             throw new IOException("Compose config does not contain a services object");
         }
@@ -60,11 +65,15 @@ public final class ComposeCliConfigReader {
                 throw new IOException("Compose service " + name + " is not an object");
             }
 
-            var image = Optional.ofNullable(service.get("image"))
-                    .filter(JsonNode::isTextual)
-                    .map(JsonNode::textValue)
-                    .filter(value -> !value.isBlank());
-            composeServices.add(new ComposeService(name, image));
+            var image = optionalText(service, "image");
+            composeServices.add(new ComposeService(
+                    name,
+                    image,
+                    objectKeys(service, "networks"),
+                    environmentNames(service),
+                    volumeNames(service),
+                    optionalText(service, "restart")
+            ));
         }
         if (composeServices.isEmpty()) {
             throw new IOException("Compose config does not declare any services");
@@ -73,5 +82,85 @@ public final class ComposeCliConfigReader {
         return composeServices.stream()
                 .sorted(Comparator.comparing(ComposeService::name))
                 .toList();
+    }
+
+    private Optional<String> optionalText(JsonNode service, String field) {
+        return Optional.ofNullable(service.get(field))
+                .filter(JsonNode::isTextual)
+                .map(JsonNode::textValue)
+                .filter(value -> !value.isBlank());
+    }
+
+    private List<String> objectKeys(JsonNode service, String field) throws IOException {
+        var value = service.get(field);
+        if (value == null || value.isNull()) {
+            return List.of();
+        }
+        if (!value.isObject()) {
+            throw new IOException("Compose service " + field + " must be an object");
+        }
+
+        return collectFieldNames(value);
+    }
+
+    private List<String> environmentNames(JsonNode service) throws IOException {
+        var value = service.get("environment");
+        if (value == null || value.isNull()) {
+            return List.of();
+        }
+        if (value.isObject()) {
+            return collectFieldNames(value);
+        }
+        if (value.isArray()) {
+            var names = new ArrayList<String>();
+            for (var variable : value) {
+                if (!variable.isTextual() || variable.textValue().isBlank()) {
+                    throw new IOException("Compose service environment must contain strings");
+                }
+                var separator = variable.textValue().indexOf('=');
+                names.add(separator < 0
+                        ? variable.textValue()
+                        : variable.textValue().substring(0, separator));
+            }
+            return List.copyOf(names);
+        }
+        throw new IOException("Compose service environment must be an object or array");
+    }
+
+    private List<String> volumeNames(JsonNode service) throws IOException {
+        var value = service.get("volumes");
+        if (value == null || value.isNull()) {
+            return List.of();
+        }
+        if (!value.isArray()) {
+            throw new IOException("Compose service volumes must be an array");
+        }
+
+        var names = new ArrayList<String>();
+        for (var volume : value) {
+            if (volume.isTextual()) {
+                names.add(volume.textValue());
+            } else if (volume.isObject()) {
+                var source = volume.path("source").asText(null);
+                var target = volume.path("target").asText(null);
+                if (source == null || source.isBlank()) {
+                    source = target;
+                }
+                if (source == null || source.isBlank()) {
+                    throw new IOException("Compose service volume is missing source and target");
+                }
+                names.add(source);
+            } else {
+                throw new IOException("Compose service volumes must contain strings or objects");
+            }
+        }
+        return List.copyOf(names);
+    }
+
+    private List<String> collectFieldNames(JsonNode object) {
+        var names = new ArrayList<String>();
+        Iterator<String> fields = object.fieldNames();
+        fields.forEachRemaining(names::add);
+        return List.copyOf(names);
     }
 }
