@@ -136,15 +136,27 @@ docker compose ps
 
 The PostgreSQL credentials in this file are for local development only and must not be reused in production.
 
+## Native packaging
+
+Install GraalVM JDK 21 and its `native-image` component, then run:
+
+```bash
+mvn -Pnative package
+./target/tambo
+```
+
+Native packaging is optional. The standard JVM build remains the supported development path.
+
 ## Technology
 
 - Java 21
 - Maven
 - [TamboUI](https://tamboui.dev/) 0.5.0
+- Optional GraalVM Native Image Maven profile
 - TamboUI JLine 3 terminal backend
 - JUnit Jupiter 5.13.4
 
-There is no Spring application, Docker SDK, or packaged executable. Docker integration uses the Docker Compose CLI through Java process APIs rather than calling Docker from UI components.
+There is no Spring application or Docker SDK. Docker integration uses the Docker Compose CLI through Java process APIs rather than calling Docker from UI components. An optional GraalVM Native Image profile is available with `mvn -Pnative package` when `native-image` is installed.
 
 ## Tests
 

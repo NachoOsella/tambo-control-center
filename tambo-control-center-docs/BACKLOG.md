@@ -61,8 +61,11 @@
 
 ## P3: later
 
-- [ ] Multiple registered workspaces.
-- [ ] Docker Engine API adapter evaluation.
-- [ ] Docker contexts UI.
-- [ ] Kafka explorer module.
-- [ ] Native executable packaging evaluation.
+- [x] Docker Engine API adapter evaluation.
+- [x] Native executable packaging.
+
+## Explicitly out of scope
+
+- Multiple registered workspaces.
+- Docker contexts UI; Tambo uses the Docker context configured by the user.
+- Kafka explorer module.
