@@ -3,7 +3,7 @@
 A Java terminal UI for inspecting and operating the Docker Compose project in the current repository.
 
 > [!WARNING]
-> Tambo is pre-release and is being implemented in small increments. The current runnable slice provides Compose discovery, runtime observation, selected-service lifecycle actions, and live logs. All-service logs and resource statistics are not available yet.
+> Tambo is pre-release and is being implemented in small increments. The current runnable slice provides Compose discovery, runtime observation, selected-service lifecycle actions, and live logs for selected or all services. Resource statistics are not available yet.
 
 ## Why Tambo
 
@@ -27,7 +27,7 @@ The primary UI entity is a Compose **service**, not an individual container. Con
 | Effective Compose configuration loading | Available |
 | Runtime and health observation | Refreshed every five seconds and manually with `g` |
 | Start, stop, and restart actions | Available for the selected service |
-| Selected and all-service logs | Selected-service follow is available; all-service mode is planned |
+| Selected and all-service logs | Available with `l` toggle |
 | Stats, events, and resizable panels | Planned |
 
 The repository is intentionally not a complete Docker dashboard yet. The README describes the current implementation separately from the target design so that planned behavior is not mistaken for an available feature.
@@ -95,7 +95,7 @@ mvn exec:java -Dexec.mainClass=app.tambo.Main
 
 If no file is found, the application exits with an explanatory error instead of opening an empty dashboard.
 
-The application loads service definitions from `docker compose config --format json`, refreshes runtime state every five seconds, and follows logs for the selected service. Changing selection replaces the active log process. Focus Logs to scroll with `j`/`k`, freeze with `f`, jump to the end with `G`, or clear the local buffer with `c`. Use `u`, `s`, and `r` for lifecycle actions, or `g` to refresh immediately.
+The application loads service definitions from `docker compose config --format json`, refreshes runtime state every five seconds, and follows logs for the selected service or all services. Press `l` to switch log scope. Changing selection replaces the active selected-service log process. Focus Logs to scroll with `j`/`k`, freeze with `f`, jump to the end with `G`, or clear the local buffer with `c`. Use `u`, `s`, and `r` for lifecycle actions, or `g` to refresh immediately.
 
 ## Development fixture
 
@@ -137,7 +137,7 @@ The current tests cover the implemented foundation:
 - `ComposeCliRuntimeReaderTest`: runtime, health, ports, exit codes, multiple instances, and missing services;
 - `RefreshRuntimeSnapshotTest`: asynchronous results, failures, and overlapping refresh requests;
 - `RunServiceOperationTest`: asynchronous lifecycle execution and conflicting operation rejection;
-- `SelectedServiceLogsTest`: session replacement and late-line rejection;
+- `LogsControllerTest`: selected/all scopes, session replacement, and late-line rejection;
 - `ProcessRunnerTest`: output capture, exit codes, and timeout handling;
 - `StreamingProcessTest`: line delivery and process cancellation;
 - `UiStateTest`: service selection and boundary behavior.

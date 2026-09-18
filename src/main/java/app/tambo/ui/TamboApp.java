@@ -1,6 +1,8 @@
 package app.tambo.ui;
 
-import app.tambo.application.logs.SelectedServiceLogs;
+import app.tambo.application.logs.LogMode;
+import app.tambo.application.logs.LogScope;
+import app.tambo.application.logs.LogsController;
 import app.tambo.application.service.LifecycleResult;
 import app.tambo.application.service.RefreshRuntimeSnapshot;
 import app.tambo.application.service.RunServiceOperation;
@@ -43,7 +45,8 @@ public final class TamboApp extends ToolkitApp {
     private final ProjectContext project;
     private final RefreshRuntimeSnapshot refreshRuntime;
     private final RunServiceOperation serviceOperations;
-    private final SelectedServiceLogs selectedServiceLogs;
+    private final LogsController logsController;
+    private LogMode logMode = LogMode.SELECTED_SERVICE;
     private final Map<String, ServiceOperation> activeOperations = new HashMap<>();
     private Map<String, ServiceRuntime> runtimeByService;
     private UiState state;
@@ -60,13 +63,13 @@ public final class TamboApp extends ToolkitApp {
             Map<String, ServiceRuntime> runtimeByService,
             RefreshRuntimeSnapshot refreshRuntime,
             RunServiceOperation serviceOperations,
-            SelectedServiceLogs selectedServiceLogs
+            LogsController logsController
     ) {
         this.project = Objects.requireNonNull(project, "project");
         this.runtimeByService = Map.copyOf(runtimeByService);
         this.refreshRuntime = Objects.requireNonNull(refreshRuntime, "refreshRuntime");
         this.serviceOperations = Objects.requireNonNull(serviceOperations, "serviceOperations");
-        this.selectedServiceLogs = Objects.requireNonNull(selectedServiceLogs, "selectedServiceLogs");
+        this.logsController = Objects.requireNonNull(logsController, "logsController");
         this.state = new UiState(services, 0);
     }
 
@@ -74,7 +77,7 @@ public final class TamboApp extends ToolkitApp {
     protected void onStart() {
         setWindowTitle("Tambo | " + projectName());
         runner().eventRouter().addGlobalHandler(this::handleGlobalEvent);
-        selectedServiceLogs.follow(state.selectedService().name(), this::requestLogRender);
+        logsController.follow(LogScope.selected(state.selectedService().name()), this::requestLogRender);
         runtimePolling = runner().scheduleRepeating(
                 () -> runner().runOnRenderThread(() -> requestRuntimeRefresh()),
                 RUNTIME_REFRESH_INTERVAL
@@ -84,7 +87,7 @@ public final class TamboApp extends ToolkitApp {
     @Override
     protected void onStop() {
         runtimePolling.cancel();
-        selectedServiceLogs.close();
+        logsController.close();
         serviceOperations.close();
         refreshRuntime.close();
     }
@@ -112,7 +115,7 @@ public final class TamboApp extends ToolkitApp {
     }
 
     private Panel logsPanel() {
-        var view = selectedServiceLogs.view();
+        var view = logsController.view();
         Element content;
         if (view.lines().isEmpty()) {
             content = text(logEmptyMessage(view)).dim();
@@ -124,7 +127,7 @@ public final class TamboApp extends ToolkitApp {
             content = column(lines);
         }
 
-        return standardPanel("󰆍 Logs · " + view.serviceName(), content)
+        return standardPanel("󰆍 Logs · " + view.scope().label(), content)
                 .bottomTitle(logStatusLabel(view.status())
                         + " · follow: " + (logViewport.following() ? "on" : "off"))
                 .id("logs")
@@ -134,7 +137,7 @@ public final class TamboApp extends ToolkitApp {
                 .fill();
     }
 
-    private String logEmptyMessage(SelectedServiceLogs.LogView view) {
+    private String logEmptyMessage(LogsController.LogView view) {
         return switch (view.status()) {
             case CONNECTING -> "Connecting to log stream...";
             case FOLLOWING -> "Waiting for output...";
@@ -143,7 +146,7 @@ public final class TamboApp extends ToolkitApp {
         };
     }
 
-    private String logStatusLabel(SelectedServiceLogs.LogStatus status) {
+    private String logStatusLabel(LogsController.LogStatus status) {
         return switch (status) {
             case CONNECTING -> "connecting";
             case FOLLOWING -> "follow: on";
@@ -258,6 +261,8 @@ public final class TamboApp extends ToolkitApp {
                 text("up/stop/restart").dim(),
                 text("g").fg(CYAN).bold(),
                 text("refresh").dim(),
+                text("l").fg(CYAN).bold(),
+                text("selected/all").dim(),
                 text("f/G/c").fg(CYAN).bold(),
                 text("follow/end/clear").dim(),
                 text("q").fg(CYAN).bold(),
@@ -301,7 +306,22 @@ public final class TamboApp extends ToolkitApp {
         if (keyEvent.isChar('g')) {
             return requestRuntimeRefresh();
         }
+        if (keyEvent.isChar('l')) {
+            return toggleLogMode();
+        }
         return EventResult.UNHANDLED;
+    }
+
+    private EventResult toggleLogMode() {
+        logMode = logMode == LogMode.SELECTED_SERVICE
+                ? LogMode.ALL_SERVICES
+                : LogMode.SELECTED_SERVICE;
+        logViewport = LogViewport.atEnd();
+        var scope = logMode == LogMode.ALL_SERVICES
+                ? LogScope.all()
+                : LogScope.selected(state.selectedService().name());
+        logsController.follow(scope, this::requestLogRender);
+        return EventResult.HANDLED;
     }
 
     private EventResult runSelectedServiceOperation(ServiceOperation operation) {
@@ -415,13 +435,18 @@ public final class TamboApp extends ToolkitApp {
 
         if (state.selectedIndex() != previousSelection) {
             logViewport = LogViewport.atEnd();
-            selectedServiceLogs.follow(state.selectedService().name(), this::requestLogRender);
+            if (logMode == LogMode.SELECTED_SERVICE) {
+                logsController.follow(
+                        LogScope.selected(state.selectedService().name()),
+                        this::requestLogRender
+                );
+            }
         }
         return EventResult.HANDLED;
     }
 
     private EventResult handleLogKey(KeyEvent event) {
-        int lineCount = selectedServiceLogs.view().lines().size();
+        int lineCount = logsController.view().lines().size();
         if (event.isUp() || event.isChar('k')) {
             logViewport = logViewport.scrollUp(lineCount);
         } else if (event.isDown() || event.isChar('j')) {
@@ -431,7 +456,7 @@ public final class TamboApp extends ToolkitApp {
         } else if (event.isChar('G')) {
             logViewport = logViewport.jumpToEnd();
         } else if (event.isChar('c')) {
-            selectedServiceLogs.clear();
+            logsController.clear();
             logViewport = LogViewport.atEnd();
         } else {
             return EventResult.UNHANDLED;

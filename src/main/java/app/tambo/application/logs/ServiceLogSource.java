@@ -8,7 +8,7 @@ import java.util.function.Consumer;
 public interface ServiceLogSource {
     LogSession follow(
             ProjectContext project,
-            String serviceName,
+            LogScope scope,
             Consumer<String> onLine,
             Consumer<LogStreamEnd> onEnd
     ) throws IOException;

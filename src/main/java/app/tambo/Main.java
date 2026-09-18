@@ -1,6 +1,6 @@
 package app.tambo;
 
-import app.tambo.application.logs.SelectedServiceLogs;
+import app.tambo.application.logs.LogsController;
 import app.tambo.application.service.RefreshRuntimeSnapshot;
 import app.tambo.application.service.RunServiceOperation;
 import app.tambo.domain.service.ComposeService;
@@ -62,7 +62,7 @@ public final class Main {
                 new ComposeCliServiceLifecycle(processRunner),
                 projectContext
         );
-        var selectedServiceLogs = new SelectedServiceLogs(
+        var logsController = new LogsController(
                 new ComposeCliServiceLogSource(),
                 projectContext,
                 1_000
@@ -73,7 +73,7 @@ public final class Main {
                 runtime,
                 refreshRuntime,
                 serviceOperations,
-                selectedServiceLogs
+                logsController
         ).run();
     }
 }

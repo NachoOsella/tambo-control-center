@@ -22,7 +22,7 @@
 - [x] Selected service logs follow.
 - [x] Ring buffer.
 - [x] Log scrolling and follow/freeze.
-- [ ] All-services logs mode.
+- [x] All-services logs mode.
 - [x] Safe log session switching.
 - [ ] Up all.
 - [ ] Stop all.

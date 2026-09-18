@@ -7,32 +7,32 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 
-public final class SelectedServiceLogs implements AutoCloseable {
+public final class LogsController implements AutoCloseable {
     private final ServiceLogSource source;
     private final ProjectContext project;
     private final LogBuffer buffer;
 
     private long generation;
     private LogSession session;
-    private String serviceName = "";
+    private LogScope scope = LogScope.all();
     private LogStatus status = LogStatus.DISCONNECTED;
     private String message = "";
     private Runnable onChange = () -> { };
 
-    public SelectedServiceLogs(ServiceLogSource source, ProjectContext project, int capacity) {
+    public LogsController(ServiceLogSource source, ProjectContext project, int capacity) {
         this.source = Objects.requireNonNull(source, "source");
         this.project = Objects.requireNonNull(project, "project");
         this.buffer = new LogBuffer(capacity);
     }
 
-    public synchronized void follow(String nextServiceName, Runnable nextOnChange) {
-        Objects.requireNonNull(nextServiceName, "nextServiceName");
+    public synchronized void follow(LogScope nextScope, Runnable nextOnChange) {
+        Objects.requireNonNull(nextScope, "nextScope");
         Objects.requireNonNull(nextOnChange, "nextOnChange");
 
         generation++;
         closeSession();
         buffer.clear();
-        serviceName = nextServiceName;
+        scope = nextScope;
         status = LogStatus.CONNECTING;
         message = "";
         onChange = nextOnChange;
@@ -41,7 +41,7 @@ public final class SelectedServiceLogs implements AutoCloseable {
         try {
             session = source.follow(
                     project,
-                    nextServiceName,
+                    nextScope,
                     line -> acceptLine(sessionGeneration, line),
                     end -> acceptEnd(sessionGeneration, end)
             );
@@ -55,7 +55,7 @@ public final class SelectedServiceLogs implements AutoCloseable {
     }
 
     public synchronized LogView view() {
-        return new LogView(serviceName, status, buffer.snapshot(), message);
+        return new LogView(scope, status, buffer.snapshot(), message);
     }
 
     public void clear() {
@@ -117,7 +117,7 @@ public final class SelectedServiceLogs implements AutoCloseable {
     }
 
     public record LogView(
-            String serviceName,
+            LogScope scope,
             LogStatus status,
             List<String> lines,
             String message

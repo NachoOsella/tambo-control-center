@@ -12,7 +12,7 @@ import java.util.function.Consumer;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class SelectedServiceLogsTest {
+class LogsControllerTest {
     private final ProjectContext project = new ProjectContext(
             Path.of("project"),
             Path.of("project", "compose.yaml")
@@ -21,20 +21,34 @@ class SelectedServiceLogsTest {
     @Test
     void switchingServiceReplacesTheSessionAndRejectsLateLines() {
         var source = new FakeLogSource();
-        var logs = new SelectedServiceLogs(source, project, 10);
+        var logs = new LogsController(source, project, 10);
 
-        logs.follow("api", () -> { });
+        logs.follow(LogScope.selected("api"), () -> { });
         var apiSession = source.sessions.getFirst();
         apiSession.emit("api line");
 
-        logs.follow("worker", () -> { });
+        logs.follow(LogScope.selected("worker"), () -> { });
         var workerSession = source.sessions.getLast();
         apiSession.emit("late api line");
         workerSession.emit("worker line");
 
         assertTrue(apiSession.closed);
-        assertEquals("worker", logs.view().serviceName());
+        assertEquals("worker", logs.view().scope().label());
         assertEquals(List.of("worker line"), logs.view().lines());
+    }
+
+    @Test
+    void supportsAStreamForAllServices() {
+        var source = new FakeLogSource();
+        var logs = new LogsController(source, project, 10);
+
+        logs.follow(LogScope.all(), () -> { });
+        source.sessions.getFirst().emit("api | ready");
+        source.sessions.getFirst().emit("worker | ready");
+
+        assertEquals(LogMode.ALL_SERVICES, logs.view().scope().mode());
+        assertEquals("all services", logs.view().scope().label());
+        assertEquals(List.of("api | ready", "worker | ready"), logs.view().lines());
     }
 
     private static final class FakeLogSource implements ServiceLogSource {
@@ -43,7 +57,7 @@ class SelectedServiceLogsTest {
         @Override
         public LogSession follow(
                 ProjectContext project,
-                String serviceName,
+                LogScope scope,
                 Consumer<String> onLine,
                 Consumer<LogStreamEnd> onEnd
         ) {
