@@ -34,6 +34,14 @@ record LayoutState(int servicesWidthPercent, int overviewHeightPercent) {
         );
     }
 
+    LayoutState changeServicesWidth(int deltaPercent) {
+        return new LayoutState(
+                Math.max(MIN_SERVICES_WIDTH,
+                        Math.min(MAX_SERVICES_WIDTH, servicesWidthPercent + deltaPercent)),
+                overviewHeightPercent
+        );
+    }
+
     LayoutState tallerOverview() {
         return new LayoutState(
                 servicesWidthPercent,

@@ -56,7 +56,7 @@
 - [x] recreate action.
 - [x] optional down action with confirmation.
 - [x] save layout ratios.
-- [ ] mouse resize if worth it.
+- [x] mouse resize if worth it.
 - [x] events panel.
 
 ## P3: later

@@ -80,6 +80,7 @@ The current screen has a global header, Services, Details, Resource Usage, and L
 | `y` | Copy the last visible log line using OSC52 |
 | `Ctrl+h` / `Ctrl+l` | Resize the Services column |
 | `Ctrl+j` / `Ctrl+k` | Resize the overview height; ratios are persisted locally |
+| Mouse drag on Services | Resize the Services panel horizontally |
 | `q` | Quit |
 
 Selection stops at the first and last service. It does not wrap around.

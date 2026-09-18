@@ -88,6 +88,7 @@ public final class TamboApp extends ToolkitApp {
     private String lastError = "";
     private ServiceOperation pendingConfirmation;
     private boolean eventsVisible;
+    private int mouseResizeRemainder;
     private boolean filterActive;
     private String filterQuery = "";
     private boolean logSearchActive;
@@ -323,7 +324,8 @@ public final class TamboApp extends ToolkitApp {
                 .id("services")
                 .focusable()
                 .focusedBorderColor(CYAN)
-                .onKeyEvent(this::handleServiceKey);
+                .onKeyEvent(this::handleServiceKey)
+                .draggable((deltaX, ignoredDeltaY) -> resizeServicesWithMouse(deltaX));
     }
 
     private Panel logsPanel() {
@@ -510,6 +512,20 @@ public final class TamboApp extends ToolkitApp {
     private String projectName() {
         var name = project.root().getFileName();
         return name == null ? project.root().toString() : name.toString();
+    }
+
+    private void resizeServicesWithMouse(int deltaX) {
+        var terminalWidth = runner().tuiRunner().terminal().size().width();
+        if (terminalWidth <= 0) {
+            return;
+        }
+        mouseResizeRemainder += deltaX * 100;
+        var percentDelta = mouseResizeRemainder / terminalWidth;
+        if (percentDelta != 0) {
+            layout = layout.changeServicesWidth(percentDelta);
+            mouseResizeRemainder -= percentDelta * terminalWidth;
+            layoutPreferences.save(layout);
+        }
     }
 
     private EventResult handleFilterKey(KeyEvent event) {

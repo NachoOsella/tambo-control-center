@@ -14,6 +14,13 @@ class LayoutStateTest {
     }
 
     @Test
+    void changesServicesWidthByMouseDeltaAndClampsIt() {
+        assertEquals(new LayoutState(35, 45), LayoutState.defaults().changeServicesWidth(5));
+        assertEquals(new LayoutState(20, 45), LayoutState.defaults().changeServicesWidth(-20));
+        assertEquals(new LayoutState(45, 45), LayoutState.defaults().changeServicesWidth(20));
+    }
+
+    @Test
     void stopsAtConfiguredBounds() {
         var layout = new LayoutState(45, 65);
 
