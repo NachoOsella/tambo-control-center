@@ -55,7 +55,7 @@
 - [x] `up --build` action.
 - [x] recreate action.
 - [x] optional down action with confirmation.
-- [ ] save layout ratios.
+- [x] save layout ratios.
 - [ ] mouse resize if worth it.
 - [ ] events panel.
 

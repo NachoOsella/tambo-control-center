@@ -75,7 +75,7 @@ The current screen has a global header, Services, Details, Resource Usage, and L
 | `G` | Jump to the newest log line |
 | `c` | Clear the local log buffer |
 | `Ctrl+h` / `Ctrl+l` | Resize the Services column |
-| `Ctrl+j` / `Ctrl+k` | Resize the overview height |
+| `Ctrl+j` / `Ctrl+k` | Resize the overview height; ratios are persisted locally |
 | `q` | Quit |
 
 Selection stops at the first and last service. It does not wrap around.
@@ -157,6 +157,7 @@ The current tests cover the implemented foundation:
 - `ServiceFilterTest`: case-insensitive service filtering and blank-query behavior;
 - `DockerComposeIntegrationTest`: read-only adapters against the local Compose project when integration tests are enabled;
 - `ComposeFileChangeDetectorTest`: Compose file change detection without stale notifications;
+- `LayoutPreferencesTest`: persisted layout ratios and safe defaults;
 - `RefreshResourceStatsTest`: asynchronous statistics results and failures;
 - `ServiceFilterTest`: case-insensitive service filtering and blank-query behavior;
 - `ProcessRunnerTest`: output capture, exit codes, and timeout handling;

@@ -78,6 +78,7 @@ public final class TamboApp extends ToolkitApp {
     private OperationStatus operationStatus = OperationStatus.IDLE;
     private String operationMessage = "";
     private LogViewport logViewport = LogViewport.atEnd();
+    private final LayoutPreferences layoutPreferences = new LayoutPreferences();
     private LayoutState layout = LayoutState.defaults();
     private boolean helpVisible;
     private boolean errorOverlayVisible;
@@ -116,6 +117,7 @@ public final class TamboApp extends ToolkitApp {
 
     @Override
     protected void onStart() {
+        layout = layoutPreferences.load();
         setWindowTitle("Tambo | " + projectName());
         runner().eventRouter().addGlobalHandler(this::handleGlobalEvent);
         logsController.follow(LogScope.selected(state.selectedService().name()), this::requestLogRender);
@@ -138,6 +140,7 @@ public final class TamboApp extends ToolkitApp {
 
     @Override
     protected void onStop() {
+        layoutPreferences.save(layout);
         runtimePolling.cancel();
         statsPolling.cancel();
         composeEvents.close();
@@ -730,18 +733,22 @@ public final class TamboApp extends ToolkitApp {
         if (keyEvent.hasCtrl()) {
             if (keyEvent.isChar('h')) {
                 layout = layout.narrowerServices();
+                layoutPreferences.save(layout);
                 return EventResult.HANDLED;
             }
             if (keyEvent.isChar('l')) {
                 layout = layout.widerServices();
+                layoutPreferences.save(layout);
                 return EventResult.HANDLED;
             }
             if (keyEvent.isChar('j')) {
                 layout = layout.tallerOverview();
+                layoutPreferences.save(layout);
                 return EventResult.HANDLED;
             }
             if (keyEvent.isChar('k')) {
                 layout = layout.shorterOverview();
+                layoutPreferences.save(layout);
                 return EventResult.HANDLED;
             }
         }
