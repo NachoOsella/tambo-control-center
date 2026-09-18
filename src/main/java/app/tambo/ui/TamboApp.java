@@ -76,6 +76,7 @@ public final class TamboApp extends ToolkitApp {
     private String operationMessage = "";
     private LogViewport logViewport = LogViewport.atEnd();
     private LayoutState layout = LayoutState.defaults();
+    private boolean helpVisible;
     private ToolkitRunner.ScheduledAction runtimePolling;
     private ToolkitRunner.ScheduledAction statsPolling;
 
@@ -133,6 +134,10 @@ public final class TamboApp extends ToolkitApp {
 
     @Override
     protected Element render() {
+        if (helpVisible) {
+            return helpPanel();
+        }
+
         var terminalSize = runner().tuiRunner().terminal().size();
         if (terminalSize.width() < 80 || terminalSize.height() < 24) {
             return column(
@@ -159,6 +164,32 @@ public final class TamboApp extends ToolkitApp {
                 logsPanel(),
                 statusBar()
         ).spacing(0);
+    }
+
+    private Element helpPanel() {
+        return standardPanel("󰋖 Keyboard help",
+                column(
+                        text("Navigation").fg(CYAN).bold(),
+                        text("↑↓ / j/k       select service"),
+                        text("Tab / Shift+Tab switch panel focus"),
+                        text(""),
+                        text("Lifecycle").fg(CYAN).bold(),
+                        text("u / s / r       up, stop, restart selected"),
+                        text("U / S / R       up, stop, restart all"),
+                        text(""),
+                        text("Runtime and logs").fg(CYAN).bold(),
+                        text("g               refresh runtime"),
+                        text("l               selected/all logs"),
+                        text("f / G / c       follow, end, clear logs"),
+                        text(""),
+                        text("Layout").fg(CYAN).bold(),
+                        text("Ctrl+h/l        resize Services column"),
+                        text("Ctrl+j/k        resize overview height"),
+                        text(""),
+                        text("?               close help"),
+                        text("q               quit")
+                ).spacing(0)
+        ).borderColor(CYAN).padding(1).fill();
     }
 
     private Element header() {
@@ -538,6 +569,13 @@ public final class TamboApp extends ToolkitApp {
     private EventResult handleGlobalEvent(Event event) {
         if (!(event instanceof KeyEvent keyEvent)) {
             return EventResult.UNHANDLED;
+        }
+        if (keyEvent.isChar('?')) {
+            helpVisible = !helpVisible;
+            return EventResult.HANDLED;
+        }
+        if (helpVisible) {
+            return EventResult.HANDLED;
         }
         if (keyEvent.hasCtrl()) {
             if (keyEvent.isChar('h')) {
