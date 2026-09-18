@@ -94,7 +94,8 @@ public final class TamboApp extends ToolkitApp {
         this.runtimeByService = Map.copyOf(runtimeByService);
         this.resourceUsageByContainer = Map.copyOf(resourceUsageByContainer);
         this.refreshRuntime = Objects.requireNonNull(refreshRuntime, "refreshRuntime");
-        this.refreshStats = Objects.requireNonNull(refreshStats, "refreshStats");        this.serviceOperations = Objects.requireNonNull(serviceOperations, "serviceOperations");
+        this.refreshStats = Objects.requireNonNull(refreshStats, "refreshStats");
+        this.serviceOperations = Objects.requireNonNull(serviceOperations, "serviceOperations");
         this.logsController = Objects.requireNonNull(logsController, "logsController");
         this.state = new UiState(services, 0);
     }
@@ -156,7 +157,7 @@ public final class TamboApp extends ToolkitApp {
                 overview,
                 logsPanel(),
                 statusBar()
-        ).spacing(1);
+        ).spacing(0);
     }
 
     private Element header() {
@@ -341,7 +342,7 @@ public final class TamboApp extends ToolkitApp {
                         text("Exit code").dim().length(12),
                         text(formatExitCode(runtime)).fill()
                 )
-        ).spacing(1);
+        ).spacing(0);
         return standardPanel("󰒓 Details · " + state.selectedService().name(), details)
                 .id("details")
                 .focusable()

@@ -3,8 +3,8 @@ package app.tambo.ui;
 record LayoutState(int servicesWidthPercent, int overviewHeightPercent) {
     private static final int MIN_SERVICES_WIDTH = 20;
     private static final int MAX_SERVICES_WIDTH = 45;
-    private static final int MIN_OVERVIEW_HEIGHT = 35;
-    private static final int MAX_OVERVIEW_HEIGHT = 70;
+    private static final int MIN_OVERVIEW_HEIGHT = 30;
+    private static final int MAX_OVERVIEW_HEIGHT = 65;
     private static final int STEP = 5;
 
     LayoutState {
@@ -17,7 +17,7 @@ record LayoutState(int servicesWidthPercent, int overviewHeightPercent) {
     }
 
     static LayoutState defaults() {
-        return new LayoutState(30, 55);
+        return new LayoutState(30, 45);
     }
 
     LayoutState widerServices() {
