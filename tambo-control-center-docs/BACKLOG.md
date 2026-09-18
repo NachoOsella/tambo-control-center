@@ -40,7 +40,7 @@
 - [x] Debug logging.
 - [x] Better error details overlay.
 - [x] Integration tests with real Docker.
-- [ ] Shutdown race tests.
+- [x] Shutdown race tests.
 - [ ] Handle service list changes after Compose edit.
 - [x] Help overlay.
 

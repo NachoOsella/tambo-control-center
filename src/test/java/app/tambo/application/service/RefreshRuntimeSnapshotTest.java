@@ -66,6 +66,27 @@ class RefreshRuntimeSnapshotTest {
     }
 
     @Test
+    void shutdownInterruptsAnInFlightReader() throws Exception {
+        var interrupted = new CountDownLatch(1);
+        RuntimeSnapshotReader reader = (ignoredProject, ignoredServices) -> {
+            try {
+                new CountDownLatch(1).await();
+                return Map.of();
+            } catch (InterruptedException exception) {
+                interrupted.countDown();
+                throw exception;
+            }
+        };
+
+        var refresh = new RefreshRuntimeSnapshot(reader, project, services);
+        var future = refresh.execute();
+        refresh.close();
+
+        assertTrue(interrupted.await(1, TimeUnit.SECONDS));
+        assertThrows(ExecutionException.class, future::get);
+    }
+
+    @Test
     void preservesReaderFailureForTheUi() {
         RuntimeSnapshotReader reader = (ignoredProject, ignoredServices) -> {
             throw new IOException("Docker is unavailable");
