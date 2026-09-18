@@ -7,7 +7,7 @@
 - [x] Keyboard service selection.
 - [x] Clean quit.
 - [x] Compose file discovery walking upward from cwd.
-- [ ] Docker Compose preflight.
+- [x] Docker Compose preflight.
 - [x] `compose config --format json` adapter.
 - [x] Render real services.
 - [x] `compose ps --all --format json` adapter.

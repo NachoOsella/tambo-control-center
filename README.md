@@ -98,7 +98,7 @@ mvn exec:java -Dexec.mainClass=app.tambo.Main
 3. `docker-compose.yaml`
 4. `docker-compose.yml`
 
-If no file is found, the application exits with an explanatory error instead of opening an empty dashboard.
+If no file is found, the application exits with an explanatory error instead of opening an empty dashboard. It also verifies that Docker Compose is available before opening the dashboard.
 
 The application loads service definitions from `docker compose config --format json`, refreshes runtime state every five seconds, and also listens to `docker compose events --json` to request faster refreshes. Polling remains the fallback. It follows logs for the selected service or all services. Press `l` to switch log scope. Changing selection replaces the active selected-service log process. Focus Logs to scroll with `j`/`k`, freeze with `f`, jump to the end with `G`, or clear the local buffer with `c`. Use `u`, `s`, and `r` for selected-service actions, `U`, `S`, and `R` for all services, or `g` to refresh immediately.
 

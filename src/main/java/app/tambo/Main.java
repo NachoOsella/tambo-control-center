@@ -10,6 +10,7 @@ import app.tambo.domain.service.ContainerInstance;
 import app.tambo.domain.service.ResourceUsage;
 import app.tambo.domain.service.ServiceRuntime;
 import app.tambo.infrastructure.compose.ComposeCliConfigReader;
+import app.tambo.infrastructure.compose.ComposeCliPreflight;
 import app.tambo.infrastructure.compose.ComposeCliRuntimeReader;
 import app.tambo.infrastructure.compose.ComposeCliServiceLogSource;
 import app.tambo.infrastructure.compose.ComposeCliEventSource;
@@ -44,6 +45,7 @@ public final class Main {
         var projectContext = project.orElseThrow();
         var processRunner = new ProcessRunner();
         var objectMapper = new ObjectMapper();
+        var preflight = new ComposeCliPreflight(processRunner);
         var configReader = new ComposeCliConfigReader(processRunner, objectMapper);
         var runtimeReader = new ComposeCliRuntimeReader(processRunner, objectMapper);
         var statsReader = new ComposeCliStatsReader(processRunner, objectMapper);
@@ -51,6 +53,7 @@ public final class Main {
         List<ComposeService> services;
         Map<String, ServiceRuntime> runtime;
         try {
+            preflight.verify(projectContext);
             services = configReader.readServices(projectContext);
             runtime = runtimeReader.readRuntime(projectContext, services);
         } catch (IOException | TimeoutException exception) {
