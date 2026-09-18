@@ -90,6 +90,8 @@ Run these commands from the repository root:
 
 ```bash
 mvn test
+# Enable the read-only Docker integration test when Docker is available.
+mvn -Dtambo.integration=true test
 mvn exec:java -Dexec.mainClass=app.tambo.Main
 # Add -Dexec.args=--debug to write diagnostics to the local state log.
 ```
@@ -148,6 +150,8 @@ The current tests cover the implemented foundation:
 - `LogsControllerTest`: selected/all scopes, session replacement, and late-line rejection;
 - `ComposeEventObserverTest`: event forwarding and replaced-stream isolation;
 - `ComposeCliStatsReaderTest`: CPU, memory, network, process, and container-name mapping;
+- `ServiceFilterTest`: case-insensitive service filtering and blank-query behavior;
+- `DockerComposeIntegrationTest`: read-only adapters against the local Compose project when integration tests are enabled;
 - `RefreshResourceStatsTest`: asynchronous statistics results and failures;
 - `ServiceFilterTest`: case-insensitive service filtering and blank-query behavior;
 - `ProcessRunnerTest`: output capture, exit codes, and timeout handling;

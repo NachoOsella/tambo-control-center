@@ -38,8 +38,8 @@
 - [x] Stats snapshots.
 - [x] CPU and memory in details.
 - [x] Debug logging.
-- [ ] Better error details overlay.
-- [ ] Integration tests with real Docker.
+- [x] Better error details overlay.
+- [x] Integration tests with real Docker.
 - [ ] Shutdown race tests.
 - [ ] Handle service list changes after Compose edit.
 - [x] Help overlay.
