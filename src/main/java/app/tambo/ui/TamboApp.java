@@ -78,6 +78,8 @@ public final class TamboApp extends ToolkitApp {
     private LogViewport logViewport = LogViewport.atEnd();
     private LayoutState layout = LayoutState.defaults();
     private boolean helpVisible;
+    private boolean errorOverlayVisible;
+    private String lastError = "";
     private boolean filterActive;
     private String filterQuery = "";
     private ToolkitRunner.ScheduledAction runtimePolling;
@@ -141,6 +143,9 @@ public final class TamboApp extends ToolkitApp {
         if (helpVisible) {
             return helpPanel();
         }
+        if (errorOverlayVisible) {
+            return errorPanel();
+        }
 
         var terminalSize = runner().tuiRunner().terminal().size();
         if (terminalSize.width() < 80 || terminalSize.height() < 24) {
@@ -185,7 +190,9 @@ public final class TamboApp extends ToolkitApp {
                         text("g               refresh runtime"),
                         text("l               selected/all logs"),
                         text("/               filter services"),
-                        text("f / G / c       follow, end, clear logs"),                        text(""),
+                        text("f / G / c       follow, end, clear logs"),
+                        text("e               show the last full error"),
+                        text(""),
                         text("Layout").fg(CYAN).bold(),
                         text("Ctrl+h/l        resize Services column"),
                         text("Ctrl+j/k        resize overview height"),
@@ -194,6 +201,16 @@ public final class TamboApp extends ToolkitApp {
                         text("q               quit")
                 ).spacing(0)
         ).borderColor(CYAN).padding(1).fill();
+    }
+
+    private Element errorPanel() {
+        return standardPanel("󰅙 Error",
+                column(
+                        text("The last operation failed").fg(LIGHT_RED).bold(),
+                        text(lastError),
+                        text("Press e or Esc to close").dim()
+                ).spacing(1)
+        ).borderColor(LIGHT_RED).padding(1).fill();
     }
 
     private Element header() {
@@ -587,6 +604,8 @@ public final class TamboApp extends ToolkitApp {
                 text(filterActive ? filterQuery : "filter").dim(),
                 text("f/G/c").fg(CYAN).bold(),
                 text("follow/end/clear").dim(),
+                text("e").fg(CYAN).bold(),
+                text("details").dim(),
                 text("C-h/l C-j/k").fg(CYAN).bold(),
                 text("resize").dim(),
                 text("q").fg(CYAN).bold(),
@@ -630,7 +649,16 @@ public final class TamboApp extends ToolkitApp {
             helpVisible = !helpVisible;
             return EventResult.HANDLED;
         }
-        if (helpVisible) {
+        if (keyEvent.isCancel() && (helpVisible || errorOverlayVisible)) {
+            helpVisible = false;
+            errorOverlayVisible = false;
+            return EventResult.HANDLED;
+        }
+        if (keyEvent.isChar('e') && !lastError.isBlank()) {
+            errorOverlayVisible = true;
+            return EventResult.HANDLED;
+        }
+        if (helpVisible || errorOverlayVisible) {
             return EventResult.HANDLED;
         }
         if (filterActive) {
@@ -749,15 +777,17 @@ public final class TamboApp extends ToolkitApp {
         }
 
         if (error != null) {
+            lastError = errorDetails(error);
             operationStatus = OperationStatus.FAILED;
             operationMessage = operation.commandName() + " " + target.label()
-                    + " failed: " + errorMessage(error);
+                    + " failed: " + compact(lastError);
             return;
         }
         if (result instanceof LifecycleResult.Failed failure) {
+            lastError = failure.message();
             operationStatus = OperationStatus.FAILED;
             operationMessage = operation.commandName() + " " + target.label()
-                    + " failed: " + compact(failure.message());
+                    + " failed: " + compact(lastError);
             return;
         }
         if (result instanceof LifecycleResult.Rejected) {
@@ -801,7 +831,8 @@ public final class TamboApp extends ToolkitApp {
         }
 
         refreshStatus = RefreshStatus.FAILED;
-        refreshMessage = errorMessage(error);
+        lastError = errorDetails(error);
+        refreshMessage = compact(lastError);
     }
 
     private EventResult requestStatsRefresh() {
@@ -834,16 +865,21 @@ public final class TamboApp extends ToolkitApp {
         }
 
         statsStatus = StatsStatus.FAILED;
-        statsMessage = errorMessage(error);
+        lastError = errorDetails(error);
+        statsMessage = compact(lastError);
     }
 
     private String errorMessage(Throwable error) {
+        return compact(errorDetails(error));
+    }
+
+    private String errorDetails(Throwable error) {
         var cause = error instanceof CompletionException && error.getCause() != null
                 ? error.getCause()
                 : error;
         return cause.getMessage() == null || cause.getMessage().isBlank()
                 ? cause.getClass().getSimpleName()
-                : compact(cause.getMessage());
+                : cause.getMessage();
     }
 
     private String compact(String message) {
