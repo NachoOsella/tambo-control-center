@@ -5,6 +5,7 @@ import app.tambo.application.logs.LogScope;
 import app.tambo.application.logs.LogsController;
 import app.tambo.application.service.LifecycleResult;
 import app.tambo.application.service.RefreshRuntimeSnapshot;
+import app.tambo.application.service.OperationTarget;
 import app.tambo.application.service.RunServiceOperation;
 import app.tambo.application.service.ServiceOperation;
 import app.tambo.domain.service.ComposeService;
@@ -48,6 +49,7 @@ public final class TamboApp extends ToolkitApp {
     private final LogsController logsController;
     private LogMode logMode = LogMode.SELECTED_SERVICE;
     private final Map<String, ServiceOperation> activeOperations = new HashMap<>();
+    private ServiceOperation globalOperation;
     private Map<String, ServiceRuntime> runtimeByService;
     private UiState state;
     private RefreshStatus refreshStatus = RefreshStatus.IDLE;
@@ -223,6 +225,9 @@ public final class TamboApp extends ToolkitApp {
     }
 
     private String selectedOperation() {
+        if (globalOperation != null) {
+            return globalOperation.activeLabel() + " all";
+        }
         var operation = activeOperations.get(state.selectedService().name());
         return operation == null ? "idle" : operation.activeLabel();
     }
@@ -259,6 +264,8 @@ public final class TamboApp extends ToolkitApp {
                 text("select").dim(),
                 text("u/s/r").fg(CYAN).bold(),
                 text("up/stop/restart").dim(),
+                text("U/S/R").fg(CYAN).bold(),
+                text("all").dim(),
                 text("g").fg(CYAN).bold(),
                 text("refresh").dim(),
                 text("l").fg(CYAN).bold(),
@@ -303,6 +310,15 @@ public final class TamboApp extends ToolkitApp {
         if (keyEvent.isChar('r')) {
             return runSelectedServiceOperation(ServiceOperation.RESTART);
         }
+        if (keyEvent.isChar('U')) {
+            return runGlobalServiceOperation(ServiceOperation.UP);
+        }
+        if (keyEvent.isChar('S')) {
+            return runGlobalServiceOperation(ServiceOperation.STOP);
+        }
+        if (keyEvent.isChar('R')) {
+            return runGlobalServiceOperation(ServiceOperation.RESTART);
+        }
         if (keyEvent.isChar('g')) {
             return requestRuntimeRefresh();
         }
@@ -325,21 +341,38 @@ public final class TamboApp extends ToolkitApp {
     }
 
     private EventResult runSelectedServiceOperation(ServiceOperation operation) {
-        var serviceName = state.selectedService().name();
-        if (activeOperations.putIfAbsent(serviceName, operation) != null) {
+        return runServiceOperation(OperationTarget.service(state.selectedService().name()), operation);
+    }
+
+    private EventResult runGlobalServiceOperation(ServiceOperation operation) {
+        return runServiceOperation(OperationTarget.allServices(), operation);
+    }
+
+    private EventResult runServiceOperation(OperationTarget target, ServiceOperation operation) {
+        if (target.serviceName().isPresent()) {
+            var serviceName = target.serviceName().orElseThrow();
+            if (globalOperation != null || activeOperations.putIfAbsent(serviceName, operation) != null) {
+                return EventResult.HANDLED;
+            }
+        } else if (globalOperation != null || !activeOperations.isEmpty()) {
             return EventResult.HANDLED;
+        } else {
+            globalOperation = operation;
         }
 
         operationStatus = OperationStatus.RUNNING;
-        operationMessage = operation.activeLabel() + " " + serviceName;
-        serviceOperations.execute(serviceName, operation).whenComplete((result, error) -> {
+        operationMessage = operation.activeLabel() + " " + target.label();
+        var result = target.serviceName().isPresent()
+                ? serviceOperations.execute(target.serviceName().orElseThrow(), operation)
+                : serviceOperations.executeAll(operation);
+        result.whenComplete((lifecycleResult, error) -> {
             if (!runner().isRunning()) {
                 return;
             }
             runner().runOnRenderThread(() -> finishServiceOperation(
-                    serviceName,
+                    target,
                     operation,
-                    result,
+                    lifecycleResult,
                     error
             ));
         });
@@ -347,33 +380,36 @@ public final class TamboApp extends ToolkitApp {
     }
 
     private void finishServiceOperation(
-            String serviceName,
+            OperationTarget target,
             ServiceOperation operation,
             LifecycleResult result,
             Throwable error
     ) {
-        activeOperations.remove(serviceName);
+        target.serviceName().ifPresent(activeOperations::remove);
+        if (target.serviceName().isEmpty()) {
+            globalOperation = null;
+        }
 
         if (error != null) {
             operationStatus = OperationStatus.FAILED;
-            operationMessage = operation.commandName() + " " + serviceName
+            operationMessage = operation.commandName() + " " + target.label()
                     + " failed: " + errorMessage(error);
             return;
         }
         if (result instanceof LifecycleResult.Failed failure) {
             operationStatus = OperationStatus.FAILED;
-            operationMessage = operation.commandName() + " " + serviceName
+            operationMessage = operation.commandName() + " " + target.label()
                     + " failed: " + compact(failure.message());
             return;
         }
         if (result instanceof LifecycleResult.Rejected) {
             operationStatus = OperationStatus.FAILED;
-            operationMessage = serviceName + " already has an active operation";
+            operationMessage = target.label() + " already has an active operation";
             return;
         }
 
         operationStatus = OperationStatus.SUCCEEDED;
-        operationMessage = operation.completedLabel() + " " + serviceName;
+        operationMessage = operation.completedLabel() + " " + target.label();
         requestRuntimeRefresh();
     }
 

@@ -1,6 +1,7 @@
 package app.tambo.infrastructure.compose;
 
 import app.tambo.application.service.LifecycleResult;
+import app.tambo.application.service.OperationTarget;
 import app.tambo.application.service.ServiceLifecycleGateway;
 import app.tambo.application.service.ServiceOperation;
 import app.tambo.infrastructure.process.Command;
@@ -9,6 +10,7 @@ import app.tambo.project.ProjectContext;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.OptionalInt;
@@ -26,19 +28,19 @@ public final class ComposeCliServiceLifecycle implements ServiceLifecycleGateway
     @Override
     public LifecycleResult execute(
             ProjectContext project,
-            String serviceName,
+            OperationTarget target,
             ServiceOperation operation
     ) throws InterruptedException {
-        var command = new Command(arguments(operation, serviceName), project.root());
+        var command = new Command(arguments(target, operation), project.root());
 
         try {
             var result = processRunner.run(command, OPERATION_TIMEOUT);
             if (result.succeeded()) {
-                return new LifecycleResult.Succeeded(serviceName);
+                return new LifecycleResult.Succeeded(target.label());
             }
 
             return failure(
-                    serviceName,
+                    target.label(),
                     LifecycleResult.FailureKind.COMMAND_FAILED,
                     OptionalInt.of(result.exitCode()),
                     result.stderr(),
@@ -47,7 +49,7 @@ public final class ComposeCliServiceLifecycle implements ServiceLifecycleGateway
             );
         } catch (TimeoutException exception) {
             return failure(
-                    serviceName,
+                    target.label(),
                     LifecycleResult.FailureKind.TIMED_OUT,
                     OptionalInt.empty(),
                     exception.getMessage(),
@@ -55,7 +57,7 @@ public final class ComposeCliServiceLifecycle implements ServiceLifecycleGateway
             );
         } catch (IOException exception) {
             return failure(
-                    serviceName,
+                    target.label(),
                     LifecycleResult.FailureKind.UNAVAILABLE,
                     OptionalInt.empty(),
                     exception.getMessage(),
@@ -64,12 +66,15 @@ public final class ComposeCliServiceLifecycle implements ServiceLifecycleGateway
         }
     }
 
-    private List<String> arguments(ServiceOperation operation, String serviceName) {
-        return switch (operation) {
-            case UP -> List.of("docker", "compose", "up", "-d", serviceName);
-            case STOP -> List.of("docker", "compose", "stop", serviceName);
-            case RESTART -> List.of("docker", "compose", "restart", serviceName);
-        };
+    private List<String> arguments(OperationTarget target, ServiceOperation operation) {
+        var arguments = new ArrayList<>(List.of(
+                "docker", "compose", operation.commandName()
+        ));
+        if (operation == ServiceOperation.UP) {
+            arguments.add("-d");
+        }
+        target.serviceName().ifPresent(arguments::add);
+        return arguments;
     }
 
     private LifecycleResult.Failed failure(

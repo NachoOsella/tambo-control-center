@@ -21,8 +21,8 @@ class RunServiceOperationTest {
 
     @Test
     void returnsTheGatewayResult() throws Exception {
-        ServiceLifecycleGateway lifecycle = (ignoredProject, serviceName, ignoredOperation) ->
-                new LifecycleResult.Succeeded(serviceName);
+        ServiceLifecycleGateway lifecycle = (ignoredProject, target, ignoredOperation) ->
+                new LifecycleResult.Succeeded(target.label());
 
         try (var operations = new RunServiceOperation(lifecycle, project)) {
             var result = operations.execute("api", ServiceOperation.UP).get();
@@ -32,15 +32,36 @@ class RunServiceOperationTest {
     }
 
     @Test
+    void rejectsAnIndividualOperationWhileGlobalOperationIsActive() throws Exception {
+        var operationStarted = new CountDownLatch(1);
+        var finishOperation = new CountDownLatch(1);
+        ServiceLifecycleGateway lifecycle = (ignoredProject, target, ignoredOperation) -> {
+            operationStarted.countDown();
+            finishOperation.await();
+            return new LifecycleResult.Succeeded(target.label());
+        };
+
+        try (var operations = new RunServiceOperation(lifecycle, project)) {
+            var global = operations.executeAll(ServiceOperation.STOP);
+            assertTrue(operationStarted.await(1, TimeUnit.SECONDS));
+            var individual = operations.execute("api", ServiceOperation.UP).get();
+
+            assertInstanceOf(LifecycleResult.Rejected.class, individual);
+            finishOperation.countDown();
+            global.get();
+        }
+    }
+
+    @Test
     void rejectsAnotherOperationForTheSameService() throws Exception {
         var operationCount = new AtomicInteger();
         var operationStarted = new CountDownLatch(1);
         var finishOperation = new CountDownLatch(1);
-        ServiceLifecycleGateway lifecycle = (ignoredProject, serviceName, ignoredOperation) -> {
+        ServiceLifecycleGateway lifecycle = (ignoredProject, target, ignoredOperation) -> {
             operationCount.incrementAndGet();
             operationStarted.countDown();
             finishOperation.await();
-            return new LifecycleResult.Succeeded(serviceName);
+            return new LifecycleResult.Succeeded(target.label());
         };
 
         try (var operations = new RunServiceOperation(lifecycle, project)) {

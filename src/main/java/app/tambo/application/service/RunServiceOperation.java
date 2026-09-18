@@ -15,6 +15,8 @@ public final class RunServiceOperation implements AutoCloseable {
     private final ProjectContext project;
     private final ExecutorService executor;
     private final Set<String> activeServices = ConcurrentHashMap.newKeySet();
+    private final Object operationLock = new Object();
+    private boolean globalOperationActive;
 
     public RunServiceOperation(ServiceLifecycleGateway lifecycle, ProjectContext project) {
         this(lifecycle, project, Executors.newVirtualThreadPerTaskExecutor());
@@ -34,24 +36,62 @@ public final class RunServiceOperation implements AutoCloseable {
             String serviceName,
             ServiceOperation operation
     ) {
-        Objects.requireNonNull(serviceName, "serviceName");
+        return execute(OperationTarget.service(serviceName), operation);
+    }
+
+    public CompletableFuture<LifecycleResult> executeAll(ServiceOperation operation) {
+        return execute(OperationTarget.allServices(), operation);
+    }
+
+    private CompletableFuture<LifecycleResult> execute(
+            OperationTarget target,
+            ServiceOperation operation
+    ) {
+        Objects.requireNonNull(target, "target");
         Objects.requireNonNull(operation, "operation");
-        if (!activeServices.add(serviceName)) {
-            return CompletableFuture.completedFuture(new LifecycleResult.Rejected(serviceName));
+        if (!acquire(target)) {
+            return CompletableFuture.completedFuture(new LifecycleResult.Rejected(target.label()));
         }
 
         return CompletableFuture
-                .supplyAsync(() -> run(serviceName, operation), executor)
-                .whenComplete((result, error) -> activeServices.remove(serviceName));
+                .supplyAsync(() -> run(target, operation), executor)
+                .whenComplete((result, error) -> release(target));
     }
 
-    private LifecycleResult run(String serviceName, ServiceOperation operation) {
+    private boolean acquire(OperationTarget target) {
+        synchronized (operationLock) {
+            if (target.serviceName().isEmpty()) {
+                if (globalOperationActive || !activeServices.isEmpty()) {
+                    return false;
+                }
+                globalOperationActive = true;
+                return true;
+            }
+
+            if (globalOperationActive || !activeServices.add(target.serviceName().orElseThrow())) {
+                return false;
+            }
+            return true;
+        }
+    }
+
+    private void release(OperationTarget target) {
+        synchronized (operationLock) {
+            if (target.serviceName().isEmpty()) {
+                globalOperationActive = false;
+            } else {
+                activeServices.remove(target.serviceName().orElseThrow());
+            }
+        }
+    }
+
+    private LifecycleResult run(OperationTarget target, ServiceOperation operation) {
         try {
-            return lifecycle.execute(project, serviceName, operation);
+            return lifecycle.execute(project, target, operation);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             return new LifecycleResult.Failed(
-                    serviceName,
+                    target.label(),
                     LifecycleResult.FailureKind.CANCELLED,
                     OptionalInt.empty(),
                     "operation cancelled"

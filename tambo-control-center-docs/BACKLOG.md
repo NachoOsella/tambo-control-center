@@ -24,9 +24,9 @@
 - [x] Log scrolling and follow/freeze.
 - [x] All-services logs mode.
 - [x] Safe log session switching.
-- [ ] Up all.
-- [ ] Stop all.
-- [ ] Restart all.
+- [x] Up all.
+- [x] Stop all.
+- [x] Restart all.
 - [ ] Panel resizing by keyboard.
 - [ ] Narrow terminal layout.
 
