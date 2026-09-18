@@ -15,7 +15,7 @@ import java.util.concurrent.Executors;
 public final class RefreshRuntimeSnapshot implements AutoCloseable {
     private final RuntimeSnapshotReader reader;
     private final ProjectContext project;
-    private final List<ComposeService> services;
+    private List<ComposeService> services;
     private final ExecutorService executor;
     private CompletableFuture<Map<String, ServiceRuntime>> inFlightRefresh;
 
@@ -44,13 +44,17 @@ public final class RefreshRuntimeSnapshot implements AutoCloseable {
             return inFlightRefresh;
         }
 
-        var refresh = CompletableFuture.supplyAsync(this::loadSnapshot, executor);
+        var servicesSnapshot = services;
+        var refresh = CompletableFuture.supplyAsync(
+                () -> loadSnapshot(servicesSnapshot),
+                executor
+        );
         inFlightRefresh = refresh;
         refresh.whenComplete((result, error) -> clearCompletedRefresh(refresh));
         return refresh;
     }
 
-    private Map<String, ServiceRuntime> loadSnapshot() {
+    private Map<String, ServiceRuntime> loadSnapshot(List<ComposeService> services) {
         try {
             return reader.readRuntime(project, services);
         } catch (InterruptedException exception) {
@@ -59,6 +63,10 @@ public final class RefreshRuntimeSnapshot implements AutoCloseable {
         } catch (Exception exception) {
             throw new CompletionException(exception);
         }
+    }
+
+    public synchronized void replaceServices(List<ComposeService> services) {
+        this.services = List.copyOf(services);
     }
 
     private synchronized void clearCompletedRefresh(

@@ -1,5 +1,6 @@
 package app.tambo.infrastructure.compose;
 
+import app.tambo.application.service.ComposeServicesReader;
 import app.tambo.domain.service.ComposeService;
 import app.tambo.infrastructure.process.Command;
 import app.tambo.infrastructure.process.ProcessRunner;
@@ -18,7 +19,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeoutException;
 
-public final class ComposeCliConfigReader {
+public final class ComposeCliConfigReader implements ComposeServicesReader {
     private static final Duration CONFIG_TIMEOUT = Duration.ofSeconds(10);
 
     private final ProcessRunner processRunner;

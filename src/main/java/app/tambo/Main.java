@@ -2,6 +2,7 @@ package app.tambo;
 
 import app.tambo.application.events.ComposeEventObserver;
 import app.tambo.application.logs.LogsController;
+import app.tambo.application.service.RefreshComposeServices;
 import app.tambo.application.service.RefreshResourceStats;
 import app.tambo.application.service.RefreshRuntimeSnapshot;
 import app.tambo.application.service.RunServiceOperation;
@@ -93,6 +94,7 @@ public final class Main {
             stats = Map.of();
         }
 
+        var refreshComposeServices = new RefreshComposeServices(configReader, projectContext);
         var refreshRuntime = new RefreshRuntimeSnapshot(runtimeReader, projectContext, services);
         var refreshStats = new RefreshResourceStats(statsReader, projectContext);
         var serviceOperations = new RunServiceOperation(
@@ -111,6 +113,7 @@ public final class Main {
         new TamboApp(
                 projectContext,
                 new ComposeFileChangeDetector(projectContext),
+                refreshComposeServices,
                 services,
                 runtime,
                 stats,

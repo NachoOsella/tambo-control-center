@@ -6,6 +6,7 @@ import app.tambo.application.logs.LogScope;
 import app.tambo.application.logs.LogsController;
 import app.tambo.application.service.LifecycleResult;
 import app.tambo.application.service.OperationTarget;
+import app.tambo.application.service.RefreshComposeServices;
 import app.tambo.application.service.RefreshResourceStats;
 import app.tambo.application.service.RefreshRuntimeSnapshot;
 import app.tambo.application.service.RunServiceOperation;
@@ -60,7 +61,8 @@ public final class TamboApp extends ToolkitApp {
 
     private final ProjectContext project;
     private final ComposeFileChangeDetector composeFileChanges;
-    private final List<ComposeService> allServices;
+    private final RefreshComposeServices refreshComposeServices;
+    private List<ComposeService> allServices;
     private final ComposeEventObserver composeEvents;
     private final RefreshRuntimeSnapshot refreshRuntime;
     private final RefreshResourceStats refreshStats;
@@ -97,10 +99,12 @@ public final class TamboApp extends ToolkitApp {
     private ToolkitRunner.ScheduledAction runtimePolling;
     private ToolkitRunner.ScheduledAction statsPolling;
     private boolean composeFileChanged;
+    private boolean composeReloading;
 
     public TamboApp(
             ProjectContext project,
             ComposeFileChangeDetector composeFileChanges,
+            RefreshComposeServices refreshComposeServices,
             List<ComposeService> services,
             Map<String, ServiceRuntime> runtimeByService,
             Map<String, ResourceUsage> resourceUsageByContainer,
@@ -112,6 +116,7 @@ public final class TamboApp extends ToolkitApp {
     ) {
         this.project = Objects.requireNonNull(project, "project");
         this.composeFileChanges = Objects.requireNonNull(composeFileChanges, "composeFileChanges");
+        this.refreshComposeServices = Objects.requireNonNull(refreshComposeServices, "refreshComposeServices");
         this.allServices = List.copyOf(services);
         this.composeEvents = Objects.requireNonNull(composeEvents, "composeEvents");
         this.runtimeByService = Map.copyOf(runtimeByService);
@@ -152,6 +157,7 @@ public final class TamboApp extends ToolkitApp {
         runtimePolling.cancel();
         statsPolling.cancel();
         composeEvents.close();
+        refreshComposeServices.close();
         logsController.close();
         serviceOperations.close();
         refreshRuntime.close();
@@ -713,15 +719,63 @@ public final class TamboApp extends ToolkitApp {
     }
 
     private void checkComposeFile() {
-        if (composeFileChanges.hasChanged()) {
+        if (!composeFileChanged && composeFileChanges.hasChanged()) {
             composeFileChanged = true;
-            eventMessage = "Compose file changed; restart Tambo to reload services";
+            eventMessage = "Compose file changed; reloading services";
+            requestComposeReload();
         }
+    }
+
+    private void requestComposeReload() {
+        if (composeReloading) {
+            return;
+        }
+        composeReloading = true;
+        refreshComposeServices.execute().whenComplete((services, error) -> {
+            if (!runner().isRunning()) {
+                return;
+            }
+            runner().runOnRenderThread(() -> finishComposeReload(services, error));
+        });
+    }
+
+    private void finishComposeReload(List<ComposeService> services, Throwable error) {
+        composeReloading = false;
+        if (error != null) {
+            lastError = errorDetails(error);
+            eventMessage = "Compose reload failed: " + compact(lastError);
+            return;
+        }
+
+        var selectedName = state.selectedService().name();
+        allServices = List.copyOf(services);
+        refreshRuntime.replaceServices(allServices);
+        resourceUsageByContainer = Map.of();
+        filterActive = false;
+        filterQuery = "";
+        var selectedIndex = allServices.stream()
+                .map(ComposeService::name)
+                .toList()
+                .indexOf(selectedName);
+        state = new UiState(allServices, Math.max(0, selectedIndex));
+        if (logMode == LogMode.SELECTED_SERVICE) {
+            logsController.follow(
+                    LogScope.selected(state.selectedService().name()),
+                    this::requestLogRender
+            );
+        }
+        composeFileChanged = false;
+        eventMessage = "Compose services reloaded";
+        requestRuntimeRefresh();
+        requestStatsRefresh();
     }
 
     private Element statusIndicator() {
         if (composeFileChanged) {
-            return text("󰀪 Compose file changed; restart Tambo").fg(LIGHT_YELLOW);
+            return text(composeReloading
+                    ? "󰑐 Compose file changed; reloading services"
+                    : "󰀪 Compose reload failed; press e for details")
+                    .fg(composeReloading ? LIGHT_YELLOW : LIGHT_RED);
         }
 
         if (operationStatus != OperationStatus.IDLE) {

@@ -41,7 +41,7 @@
 - [x] Better error details overlay.
 - [x] Integration tests with real Docker.
 - [x] Shutdown race tests.
-- [ ] Handle service list changes after Compose edit.
+- [x] Handle service list changes after Compose edit.
 - [x] Detect Compose file changes and warn before using stale services.
 - [x] Help overlay.
 
