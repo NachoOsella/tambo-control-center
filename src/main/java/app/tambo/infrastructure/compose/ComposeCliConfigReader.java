@@ -72,7 +72,9 @@ public final class ComposeCliConfigReader {
                     objectKeys(service, "networks"),
                     environmentNames(service),
                     volumeNames(service),
-                    optionalText(service, "restart")
+                    optionalText(service, "restart"),
+                    objectKeys(service, "depends_on"),
+                    profileNames(service)
             ));
         }
         if (composeServices.isEmpty()) {
@@ -125,6 +127,25 @@ public final class ComposeCliConfigReader {
             return List.copyOf(names);
         }
         throw new IOException("Compose service environment must be an object or array");
+    }
+
+    private List<String> profileNames(JsonNode service) throws IOException {
+        var value = service.get("profiles");
+        if (value == null || value.isNull()) {
+            return List.of();
+        }
+        if (!value.isArray()) {
+            throw new IOException("Compose service profiles must be an array");
+        }
+
+        var names = new ArrayList<String>();
+        for (var profile : value) {
+            if (!profile.isTextual() || profile.textValue().isBlank()) {
+                throw new IOException("Compose service profiles must contain strings");
+            }
+            names.add(profile.textValue());
+        }
+        return List.copyOf(names);
     }
 
     private List<String> volumeNames(JsonNode service) throws IOException {

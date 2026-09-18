@@ -50,6 +50,10 @@ class ComposeCliConfigReaderTest {
                     "database": {
                       "image": "postgres:17-alpine",
                       "restart": "unless-stopped",
+                      "depends_on": {
+                        "redis": {"condition": "service_started"}
+                      },
+                      "profiles": ["database", "local"],
                       "environment": {
                         "POSTGRES_DB": "demo",
                         "POSTGRES_USER": "demo"
@@ -73,6 +77,8 @@ class ComposeCliConfigReaderTest {
         assertEquals(List.of("default", "backend"), service.networks());
         assertEquals(List.of("POSTGRES_DB", "POSTGRES_USER"), service.environmentVariables());
         assertEquals(List.of("database_data"), service.volumes());
+        assertEquals(List.of("redis"), service.dependencies());
+        assertEquals(List.of("database", "local"), service.profiles());
     }
 
     @Test

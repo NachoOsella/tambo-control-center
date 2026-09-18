@@ -50,8 +50,8 @@
 - [x] Filter services.
 - [ ] Search logs.
 - [ ] Copy log line.
-- [ ] Show service dependencies.
-- [ ] Profiles view.
+- [x] Show service dependencies.
+- [x] Profiles view.
 - [ ] `up --build` action.
 - [ ] recreate action.
 - [ ] optional down action with confirmation.

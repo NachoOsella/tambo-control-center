@@ -415,6 +415,14 @@ public final class TamboApp extends ToolkitApp {
                         text(formatList(service.networks())).fill()
                 ),
                 row(
+                        text("Depends on").dim().length(DETAIL_LABEL_WIDTH),
+                        text(formatList(service.dependencies())).fill()
+                ),
+                row(
+                        text("Profiles").dim().length(DETAIL_LABEL_WIDTH),
+                        text(formatList(service.profiles())).fill()
+                ),
+                row(
                         text("Restart policy").dim().length(DETAIL_LABEL_WIDTH),
                         text(service.restartPolicy().orElse("not specified")).fill()
                 ),

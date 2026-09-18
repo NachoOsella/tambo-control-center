@@ -10,10 +10,12 @@ public record ComposeService(
         List<String> networks,
         List<String> environmentVariables,
         List<String> volumes,
-        Optional<String> restartPolicy
+        Optional<String> restartPolicy,
+        List<String> dependencies,
+        List<String> profiles
 ) {
     public ComposeService(String name, Optional<String> image) {
-        this(name, image, List.of(), List.of(), List.of(), Optional.empty());
+        this(name, image, List.of(), List.of(), List.of(), Optional.empty(), List.of(), List.of());
     }
 
     public ComposeService {
@@ -23,6 +25,8 @@ public record ComposeService(
         Objects.requireNonNull(environmentVariables, "environmentVariables");
         Objects.requireNonNull(volumes, "volumes");
         Objects.requireNonNull(restartPolicy, "restartPolicy");
+        Objects.requireNonNull(dependencies, "dependencies");
+        Objects.requireNonNull(profiles, "profiles");
 
         if (name.isBlank()) {
             throw new IllegalArgumentException("service name cannot be blank");
@@ -30,5 +34,7 @@ public record ComposeService(
         networks = List.copyOf(networks);
         environmentVariables = List.copyOf(environmentVariables);
         volumes = List.copyOf(volumes);
+        dependencies = List.copyOf(dependencies);
+        profiles = List.copyOf(profiles);
     }
 }
