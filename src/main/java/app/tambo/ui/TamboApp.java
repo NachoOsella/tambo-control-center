@@ -179,7 +179,7 @@ public final class TamboApp extends ToolkitApp {
         var services = text("󰏗 " + state.services().size() + " services").fg(LIGHT_BLUE);
         var running = text("󰐊 " + countRuntime(RuntimeState.RUNNING) + " running")
                 .fg(LIGHT_GREEN);
-        var stopped = text("󰓛 " + countRuntime(RuntimeState.EXITED) + " stopped")
+        var stopped = text("󰓛 " + stoppedRuntimeCount() + " stopped")
                 .fg(LIGHT_RED);
         return row(
                 connection,
@@ -197,6 +197,10 @@ public final class TamboApp extends ToolkitApp {
                 .map(this::runtimeFor)
                 .filter(runtime -> runtime.runtimeState() == runtimeState)
                 .count();
+    }
+
+    private long stoppedRuntimeCount() {
+        return countRuntime(RuntimeState.EXITED) + countRuntime(RuntimeState.DEAD);
     }
 
     private Panel servicesPanel() {
@@ -317,8 +321,8 @@ public final class TamboApp extends ToolkitApp {
                         text(service.image().orElse("not specified")).fill()
                 ),
                 row(
-                        text("Runtime").dim().length(DETAIL_LABEL_WIDTH),
-                        text(runtime.runtimeState().displayName()).fill()
+                        text("Status").dim().length(DETAIL_LABEL_WIDTH),
+                        text(runtimeLabel(runtime.runtimeState())).fill()
                 ),
                 row(
                         text("Operation").dim().length(DETAIL_LABEL_WIDTH),
@@ -401,7 +405,14 @@ public final class TamboApp extends ToolkitApp {
             case NOT_CREATED -> "󰝦";
             default -> "󰅙";
         };
-        return text(icon + " " + state.displayName()).fg(runtimeColor(state));
+        return text(icon + " " + runtimeLabel(state)).fg(runtimeColor(state));
+    }
+
+    private String runtimeLabel(RuntimeState state) {
+        return switch (state) {
+            case EXITED, DEAD -> "stopped";
+            default -> state.displayName();
+        };
     }
 
     private Color runtimeColor(RuntimeState state) {
