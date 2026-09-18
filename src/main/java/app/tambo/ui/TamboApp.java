@@ -1,5 +1,6 @@
 package app.tambo.ui;
 
+import app.tambo.application.events.ComposeEventObserver;
 import app.tambo.application.logs.LogMode;
 import app.tambo.application.logs.LogScope;
 import app.tambo.application.logs.LogsController;
@@ -49,6 +50,7 @@ public final class TamboApp extends ToolkitApp {
     private static final Color SELECTED_BACKGROUND = Color.rgb(61, 55, 31);
 
     private final ProjectContext project;
+    private final ComposeEventObserver composeEvents;
     private final RefreshRuntimeSnapshot refreshRuntime;
     private final RunServiceOperation serviceOperations;
     private final LogsController logsController;
@@ -59,6 +61,7 @@ public final class TamboApp extends ToolkitApp {
     private UiState state;
     private RefreshStatus refreshStatus = RefreshStatus.IDLE;
     private String refreshMessage = "";
+    private String eventMessage = "";
     private OperationStatus operationStatus = OperationStatus.IDLE;
     private String operationMessage = "";
     private LogViewport logViewport = LogViewport.atEnd();
@@ -71,9 +74,11 @@ public final class TamboApp extends ToolkitApp {
             Map<String, ServiceRuntime> runtimeByService,
             RefreshRuntimeSnapshot refreshRuntime,
             RunServiceOperation serviceOperations,
-            LogsController logsController
+            LogsController logsController,
+            ComposeEventObserver composeEvents
     ) {
         this.project = Objects.requireNonNull(project, "project");
+        this.composeEvents = Objects.requireNonNull(composeEvents, "composeEvents");
         this.runtimeByService = Map.copyOf(runtimeByService);
         this.refreshRuntime = Objects.requireNonNull(refreshRuntime, "refreshRuntime");
         this.serviceOperations = Objects.requireNonNull(serviceOperations, "serviceOperations");
@@ -86,6 +91,10 @@ public final class TamboApp extends ToolkitApp {
         setWindowTitle("Tambo | " + projectName());
         runner().eventRouter().addGlobalHandler(this::handleGlobalEvent);
         logsController.follow(LogScope.selected(state.selectedService().name()), this::requestLogRender);
+        composeEvents.start(
+                () -> runner().runOnRenderThread(this::requestRuntimeRefresh),
+                message -> runner().runOnRenderThread(() -> eventMessage = compact(message))
+        );
         runtimePolling = runner().scheduleRepeating(
                 () -> runner().runOnRenderThread(() -> requestRuntimeRefresh()),
                 RUNTIME_REFRESH_INTERVAL
@@ -95,6 +104,7 @@ public final class TamboApp extends ToolkitApp {
     @Override
     protected void onStop() {
         runtimePolling.cancel();
+        composeEvents.close();
         logsController.close();
         serviceOperations.close();
         refreshRuntime.close();
@@ -385,6 +395,10 @@ public final class TamboApp extends ToolkitApp {
                 case FAILED -> text("󰅙 " + operationMessage).fg(LIGHT_RED);
                 case IDLE -> throw new IllegalStateException("idle operation has no indicator");
             };
+        }
+
+        if (!eventMessage.isBlank()) {
+            return text("󰅙 events: " + eventMessage).fg(LIGHT_YELLOW);
         }
 
         return switch (refreshStatus) {

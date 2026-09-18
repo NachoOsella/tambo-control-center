@@ -28,7 +28,8 @@ The primary UI entity is a Compose **service**, not an individual container. Con
 | Runtime and health observation | Refreshed every five seconds and manually with `g` |
 | Start, stop, and restart actions | Available for selected and all services |
 | Selected and all-service logs | Available with `l` toggle |
-| Stats and events | Planned |
+| Stats | Planned |
+| Compose events | Available as a refresh trigger |
 | Resizable panels and narrow layout | Available |
 
 The repository is intentionally not a complete Docker dashboard yet. The README describes the current implementation separately from the target design so that planned behavior is not mistaken for an available feature.
@@ -99,7 +100,7 @@ mvn exec:java -Dexec.mainClass=app.tambo.Main
 
 If no file is found, the application exits with an explanatory error instead of opening an empty dashboard.
 
-The application loads service definitions from `docker compose config --format json`, refreshes runtime state every five seconds, and follows logs for the selected service or all services. Press `l` to switch log scope. Changing selection replaces the active selected-service log process. Focus Logs to scroll with `j`/`k`, freeze with `f`, jump to the end with `G`, or clear the local buffer with `c`. Use `u`, `s`, and `r` for selected-service actions, `U`, `S`, and `R` for all services, or `g` to refresh immediately.
+The application loads service definitions from `docker compose config --format json`, refreshes runtime state every five seconds, and also listens to `docker compose events --json` to request faster refreshes. Polling remains the fallback. It follows logs for the selected service or all services. Press `l` to switch log scope. Changing selection replaces the active selected-service log process. Focus Logs to scroll with `j`/`k`, freeze with `f`, jump to the end with `G`, or clear the local buffer with `c`. Use `u`, `s`, and `r` for selected-service actions, `U`, `S`, and `R` for all services, or `g` to refresh immediately.
 
 ## Development fixture
 
@@ -142,6 +143,7 @@ The current tests cover the implemented foundation:
 - `RefreshRuntimeSnapshotTest`: asynchronous results, failures, and overlapping refresh requests;
 - `RunServiceOperationTest`: asynchronous lifecycle execution and individual/global conflict rejection;
 - `LogsControllerTest`: selected/all scopes, session replacement, and late-line rejection;
+- `ComposeEventObserverTest`: event forwarding and replaced-stream isolation;
 - `ProcessRunnerTest`: output capture, exit codes, and timeout handling;
 - `StreamingProcessTest`: line delivery and process cancellation;
 - `UiStateTest`: service selection and boundary behavior.

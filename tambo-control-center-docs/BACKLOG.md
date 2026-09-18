@@ -32,8 +32,8 @@
 
 ## P1: hardening
 
-- [ ] Compose events stream.
-- [ ] Runtime refresh invalidation from events.
+- [x] Compose events stream.
+- [x] Runtime refresh invalidation from events.
 - [ ] Reconciliation polling fallback.
 - [ ] Stats snapshots.
 - [ ] CPU and memory in details.
