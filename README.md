@@ -3,7 +3,7 @@
 A Java terminal UI for inspecting and operating the Docker Compose project in the current repository.
 
 > [!WARNING]
-> Tambo is pre-release and is being implemented in small increments. The current runnable slice provides Compose discovery, automatically refreshed runtime state, and asynchronous lifecycle actions for the selected service. Logs and resource statistics are not available yet.
+> Tambo is pre-release and is being implemented in small increments. The current runnable slice provides Compose discovery, runtime observation, selected-service lifecycle actions, and live logs. All-service logs and resource statistics are not available yet.
 
 ## Why Tambo
 
@@ -27,7 +27,7 @@ The primary UI entity is a Compose **service**, not an individual container. Con
 | Effective Compose configuration loading | Available |
 | Runtime and health observation | Refreshed every five seconds and manually with `g` |
 | Start, stop, and restart actions | Available for the selected service |
-| Selected and all-service logs | Planned |
+| Selected and all-service logs | Selected-service follow is available; all-service mode is planned |
 | Stats, events, and resizable panels | Planned |
 
 The repository is intentionally not a complete Docker dashboard yet. The README describes the current implementation separately from the target design so that planned behavior is not mistaken for an available feature.
@@ -92,7 +92,7 @@ mvn exec:java -Dexec.mainClass=app.tambo.Main
 
 If no file is found, the application exits with an explanatory error instead of opening an empty dashboard.
 
-The application loads service definitions from `docker compose config --format json` and refreshes runtime state from `docker compose ps --all --format json` every five seconds. Use `u`, `s`, and `r` for lifecycle actions on the selected service, or `g` to refresh immediately. Operations run in the background and update runtime from Compose after completion.
+The application loads service definitions from `docker compose config --format json`, refreshes runtime state every five seconds, and follows logs for the selected service. Changing selection replaces the active log process. Use `u`, `s`, and `r` for lifecycle actions, or `g` to refresh immediately.
 
 ## Development fixture
 
@@ -134,7 +134,9 @@ The current tests cover the implemented foundation:
 - `ComposeCliRuntimeReaderTest`: runtime, health, ports, exit codes, multiple instances, and missing services;
 - `RefreshRuntimeSnapshotTest`: asynchronous results, failures, and overlapping refresh requests;
 - `RunServiceOperationTest`: asynchronous lifecycle execution and conflicting operation rejection;
+- `SelectedServiceLogsTest`: session replacement and late-line rejection;
 - `ProcessRunnerTest`: output capture, exit codes, and timeout handling;
+- `StreamingProcessTest`: line delivery and process cancellation;
 - `UiStateTest`: service selection and boundary behavior.
 
 Run the test suite with:
@@ -151,8 +153,8 @@ src/
 │   ├── Main.java
 │   ├── project/             Compose project discovery and context
 │   ├── ui/                  TamboUI application and UI state
-│   ├── application/         Asynchronous application use cases
-│   ├── domain/              Compose service and runtime types
+│   ├── application/         Runtime, lifecycle, and log orchestration
+│   ├── domain/              Compose service, runtime, and bounded log types
 │   └── infrastructure/      Compose CLI and process execution adapters
 └── test/java/app/tambo/     Unit tests for the implemented slices
 

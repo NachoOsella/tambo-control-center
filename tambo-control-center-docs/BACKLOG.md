@@ -19,11 +19,11 @@
 - [x] Restart selected service.
 - [x] Operation state.
 - [x] Error notification.
-- [ ] Selected service logs follow.
-- [ ] Ring buffer.
+- [x] Selected service logs follow.
+- [x] Ring buffer.
 - [ ] Log scrolling and follow/freeze.
 - [ ] All-services logs mode.
-- [ ] Safe log session switching.
+- [x] Safe log session switching.
 - [ ] Up all.
 - [ ] Stop all.
 - [ ] Restart all.

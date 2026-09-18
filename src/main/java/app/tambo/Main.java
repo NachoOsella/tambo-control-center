@@ -1,11 +1,13 @@
 package app.tambo;
 
+import app.tambo.application.logs.SelectedServiceLogs;
 import app.tambo.application.service.RefreshRuntimeSnapshot;
 import app.tambo.application.service.RunServiceOperation;
 import app.tambo.domain.service.ComposeService;
 import app.tambo.domain.service.ServiceRuntime;
 import app.tambo.infrastructure.compose.ComposeCliConfigReader;
 import app.tambo.infrastructure.compose.ComposeCliRuntimeReader;
+import app.tambo.infrastructure.compose.ComposeCliServiceLogSource;
 import app.tambo.infrastructure.compose.ComposeCliServiceLifecycle;
 import app.tambo.infrastructure.process.ProcessRunner;
 import app.tambo.project.ProjectLocator;
@@ -60,6 +62,18 @@ public final class Main {
                 new ComposeCliServiceLifecycle(processRunner),
                 projectContext
         );
-        new TamboApp(projectContext, services, runtime, refreshRuntime, serviceOperations).run();
+        var selectedServiceLogs = new SelectedServiceLogs(
+                new ComposeCliServiceLogSource(),
+                projectContext,
+                1_000
+        );
+        new TamboApp(
+                projectContext,
+                services,
+                runtime,
+                refreshRuntime,
+                serviceOperations,
+                selectedServiceLogs
+        ).run();
     }
 }
