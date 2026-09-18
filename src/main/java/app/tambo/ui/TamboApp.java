@@ -13,19 +13,20 @@ import app.tambo.application.service.RunServiceOperation;
 import app.tambo.application.service.ServiceOperation;
 import app.tambo.domain.service.ComposeService;
 import app.tambo.domain.service.ContainerInstance;
-import app.tambo.domain.service.PublishedPort;
 import app.tambo.domain.service.ResourceUsage;
 import app.tambo.domain.service.RuntimeState;
 import app.tambo.domain.service.ServiceRuntime;
 import app.tambo.project.ComposeFileChangeDetector;
 import app.tambo.project.ProjectContext;
+import app.tambo.ui.component.DetailsPanel;
+import app.tambo.ui.component.LogsPanel;
+import app.tambo.ui.component.ServicesPanel;
+import app.tambo.ui.component.StatsPanel;
 
-import dev.tamboui.style.Color;
 import dev.tamboui.toolkit.app.ToolkitApp;
 import dev.tamboui.toolkit.app.ToolkitRunner;
 import dev.tamboui.toolkit.element.Element;
 import dev.tamboui.toolkit.elements.Panel;
-import dev.tamboui.toolkit.elements.TextElement;
 import dev.tamboui.toolkit.event.EventResult;
 import dev.tamboui.tui.event.Event;
 import dev.tamboui.tui.event.KeyEvent;
@@ -35,11 +36,9 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
-import java.util.stream.Collectors;
 
 import static dev.tamboui.style.Color.CYAN;
 import static dev.tamboui.style.Color.DARK_GRAY;
@@ -48,7 +47,6 @@ import static dev.tamboui.style.Color.LIGHT_GREEN;
 import static dev.tamboui.style.Color.LIGHT_RED;
 import static dev.tamboui.style.Color.LIGHT_YELLOW;
 import static dev.tamboui.toolkit.Toolkit.column;
-import static dev.tamboui.toolkit.Toolkit.lineGauge;
 import static dev.tamboui.toolkit.Toolkit.panel;
 import static dev.tamboui.toolkit.Toolkit.row;
 import static dev.tamboui.toolkit.Toolkit.text;
@@ -56,8 +54,6 @@ import static dev.tamboui.toolkit.Toolkit.text;
 public final class TamboApp extends ToolkitApp {
     private static final Duration RUNTIME_REFRESH_INTERVAL = Duration.ofSeconds(5);
     private static final int VISIBLE_LOG_LINES = 12;
-    private static final int DETAIL_LABEL_WIDTH = 16;
-    private static final Color SELECTED_BACKGROUND = Color.rgb(61, 55, 31);
 
     private final ProjectContext project;
     private final ComposeFileChangeDetector composeFileChanges;
@@ -315,73 +311,32 @@ public final class TamboApp extends ToolkitApp {
                 .count();
     }
 
-    private String serviceCountLabel() {
-        return filterActive
-                ? "Services · " + state.services().size() + "/" + allServices.size()
-                : "Services · " + allServices.size();
-    }
-
     private long stoppedRuntimeCount() {
         return countRuntime(RuntimeState.EXITED) + countRuntime(RuntimeState.DEAD);
     }
 
     private Panel servicesPanel() {
-        return standardPanel("󰏗 " + serviceCountLabel(), serviceList())
-                .id("services")
-                .focusable()
-                .focusedBorderColor(CYAN)
-                .onKeyEvent(this::handleServiceKey)
+        return ServicesPanel.render(
+                state.services(),
+                state.selectedIndex(),
+                allServices.size(),
+                filterActive,
+                runtimeByService
+        ).onKeyEvent(this::handleServiceKey)
                 .draggable((deltaX, ignoredDeltaY) -> resizeServicesWithMouse(deltaX));
     }
 
     private Panel logsPanel() {
         var view = logsController.view();
-        Element content;
-        if (view.lines().isEmpty()) {
-            content = text(logEmptyMessage(view)).dim();
-        } else {
-            var range = logViewport.visibleRange(view.lines().size(), VISIBLE_LOG_LINES);
-            var lines = view.lines().subList(range.start(), range.end()).stream()
-                    .map(line -> {
-                        var element = text(line);
-                        if (!logSearchQuery.isBlank()
-                                && line.toLowerCase(Locale.ROOT)
-                                .contains(logSearchQuery.toLowerCase(Locale.ROOT))) {
-                            element = element.fg(LIGHT_YELLOW);
-                        }
-                        return (Element) element;
-                    })
-                    .toArray(Element[]::new);
-            content = column(lines);
-        }
-
-        return standardPanel("󰆍 Logs · " + view.scope().label(), content)
-                .bottomTitle(logStatusLabel(view.status())
-                        + " · follow: " + (logViewport.following() ? "on" : "off")
-                        + (logSearchActive ? " · search: " + logSearchQuery : ""))
-                .id("logs")
-                .focusable()
-                .focusedBorderColor(CYAN)
-                .onKeyEvent(this::handleLogKey)
-                .fill();
-    }
-
-    private String logEmptyMessage(LogsController.LogView view) {
-        return switch (view.status()) {
-            case CONNECTING -> "Connecting to log stream...";
-            case FOLLOWING -> "Waiting for output...";
-            case DISCONNECTED -> "Log stream disconnected";
-            case FAILED -> view.message().isBlank() ? "Unable to follow logs" : view.message();
-        };
-    }
-
-    private String logStatusLabel(LogsController.LogStatus status) {
-        return switch (status) {
-            case CONNECTING -> "connecting";
-            case FOLLOWING -> "follow: on";
-            case DISCONNECTED -> "disconnected";
-            case FAILED -> "failed";
-        };
+        var range = logViewport.visibleRange(view.lines().size(), VISIBLE_LOG_LINES);
+        return LogsPanel.render(
+                view,
+                range.start(),
+                range.end(),
+                logViewport.following(),
+                logSearchActive,
+                logSearchQuery
+        ).onKeyEvent(this::handleLogKey);
     }
 
     private Panel statsPanel() {
@@ -389,46 +344,7 @@ public final class TamboApp extends ToolkitApp {
                 .map(instance -> resourceUsageByContainer.get(instance.name()))
                 .filter(Objects::nonNull)
                 .toList();
-        Element content;
-        if (usages.isEmpty()) {
-            content = text("No runtime metrics available").dim();
-        } else {
-            content = column(usages.stream()
-                    .map(this::resourceUsageCard)
-                    .toArray(Element[]::new));
-        }
-
-        return standardPanel("󰍛 Resource Usage", content)
-                .bottomTitle(statsStatusLabel())
-                .id("stats")
-                .fill();
-    }
-
-    private Element resourceUsageCard(ResourceUsage usage) {
-        var cpu = lineGauge(ratio(usage.cpuPercent()))
-                .label("CPU " + formatPercent(usage.cpuPercent()))
-                .filledColor(LIGHT_GREEN)
-                .fill();
-        var memory = lineGauge(ratio(usage.memoryPercent()))
-                .label("Memory " + formatPercent(usage.memoryPercent()))
-                .filledColor(LIGHT_YELLOW)
-                .fill();
-        return column(
-                text("󰘚 " + usage.containerName()).fg(LIGHT_BLUE).bold(),
-                cpu,
-                memory,
-                text("󰈀 Network  ↓ " + usage.networkInput()
-                        + "  ↑ " + usage.networkOutput()).dim(),
-                text("󰈀 Processes " + usage.processCount()).dim()
-        ).spacing(1);
-    }
-
-    private double ratio(double percent) {
-        return Math.min(1.0, Math.max(0.0, percent / 100.0));
-    }
-
-    private String formatPercent(double percent) {
-        return String.format(Locale.ROOT, "%.1f%%", percent);
+        return StatsPanel.render(usages, statsStatusLabel());
     }
 
     private String statsStatusLabel() {
@@ -441,74 +357,7 @@ public final class TamboApp extends ToolkitApp {
     }
 
     private Panel detailsPanel() {
-        var service = state.selectedService();
-        var runtime = selectedRuntime();
-        var details = column(
-                row(
-                        text("Service").dim().length(DETAIL_LABEL_WIDTH),
-                        text(service.name()).fg(CYAN).bold().fill()
-                ),
-                row(
-                        text("Image").dim().length(DETAIL_LABEL_WIDTH),
-                        text(service.image().orElse("not specified")).fill()
-                ),
-                row(
-                        text("Status").dim().length(DETAIL_LABEL_WIDTH),
-                        text(runtimeLabel(runtime.runtimeState())).fill()
-                ),
-                row(
-                        text("Operation").dim().length(DETAIL_LABEL_WIDTH),
-                        text(selectedOperation()).fill()
-                ),
-                row(
-                        text("Health").dim().length(DETAIL_LABEL_WIDTH),
-                        text(runtime.healthState().displayName()).fill()
-                ),
-                row(
-                        text("Container").dim().length(DETAIL_LABEL_WIDTH),
-                        text(formatContainerNames(runtime)).fill()
-                ),
-                row(
-                        text("Containers").dim().length(DETAIL_LABEL_WIDTH),
-                        text(runtime.containerCount()).fill()
-                ),
-                row(
-                        text("Ports").dim().length(DETAIL_LABEL_WIDTH),
-                        text(formatPorts(runtime.publishedPorts())).fill()
-                ),
-                row(
-                        text("Network").dim().length(DETAIL_LABEL_WIDTH),
-                        text(formatList(service.networks())).fill()
-                ),
-                row(
-                        text("Depends on").dim().length(DETAIL_LABEL_WIDTH),
-                        text(formatList(service.dependencies())).fill()
-                ),
-                row(
-                        text("Profiles").dim().length(DETAIL_LABEL_WIDTH),
-                        text(formatList(service.profiles())).fill()
-                ),
-                row(
-                        text("Restart policy").dim().length(DETAIL_LABEL_WIDTH),
-                        text(service.restartPolicy().orElse("not specified")).fill()
-                ),
-                row(
-                        text("Environment").dim().length(DETAIL_LABEL_WIDTH),
-                        text(formatEnvironment(service.environmentVariables())).fill()
-                ),
-                row(
-                        text("Volumes").dim().length(DETAIL_LABEL_WIDTH),
-                        text(formatVolumes(service.volumes())).fill()
-                ),
-                row(
-                        text("Exit code").dim().length(DETAIL_LABEL_WIDTH),
-                        text(formatExitCode(runtime)).fill()
-                )
-        ).spacing(0);
-        return standardPanel("󰒓 Details · " + service.name(), details)
-                .id("details")
-                .focusable()
-                .focusedBorderColor(CYAN);
+        return DetailsPanel.render(state.selectedService(), selectedRuntime(), selectedOperation());
     }
 
     private Panel standardPanel(String title, Element... children) {
@@ -574,78 +423,6 @@ public final class TamboApp extends ToolkitApp {
         return true;
     }
 
-    private Element serviceList() {
-        var rows = new Element[state.services().size()];
-        for (int index = 0; index < state.services().size(); index++) {
-            boolean selected = index == state.selectedIndex();
-            var service = state.services().get(index);
-            var runtime = runtimeFor(service);
-            var name = text((selected ? "▸ " : "  ") + service.name()).fill();
-            var status = serviceStatus(runtime);
-            if (selected) {
-                name = name.fg(CYAN).bold().bg(SELECTED_BACKGROUND);
-                status = status.bg(SELECTED_BACKGROUND);
-            }
-            rows[index] = row(name, status);
-        }
-        return column(rows);
-    }
-
-    private TextElement serviceStatus(ServiceRuntime runtime) {
-        var state = runtime.runtimeState();
-        var icon = switch (state) {
-            case RUNNING -> "󰐊";
-            case EXITED, DEAD -> "󰓛";
-            case NOT_CREATED -> "󰝦";
-            default -> "󰅙";
-        };
-        return text(icon + " " + runtimeLabel(state)).fg(runtimeColor(state));
-    }
-
-    private String runtimeLabel(RuntimeState state) {
-        return switch (state) {
-            case EXITED, DEAD -> "stopped";
-            default -> state.displayName();
-        };
-    }
-
-    private Color runtimeColor(RuntimeState state) {
-        return switch (state) {
-            case RUNNING -> LIGHT_GREEN;
-            case EXITED, DEAD -> LIGHT_RED;
-            case NOT_CREATED -> DARK_GRAY;
-            default -> LIGHT_YELLOW;
-        };
-    }
-
-    private String formatContainerNames(ServiceRuntime runtime) {
-        if (runtime.instances().isEmpty()) {
-            return "none";
-        }
-        return runtime.instances().stream()
-                .map(instance -> instance.name())
-                .collect(Collectors.joining(", "));
-    }
-
-    private String formatList(List<String> values) {
-        return values.isEmpty() ? "none" : String.join(", ", values);
-    }
-
-    private String formatEnvironment(List<String> variables) {
-        if (variables.isEmpty()) {
-            return "none";
-        }
-        return variables.size() + " variables (" + String.join(", ", variables) + ")";
-    }
-
-    private String formatVolumes(List<String> volumes) {
-        if (volumes.isEmpty()) {
-            return "none";
-        }
-        var noun = volumes.size() == 1 ? "volume" : "volumes";
-        return volumes.size() + " " + noun + " (" + String.join(", ", volumes) + ")";
-    }
-
     private ServiceRuntime selectedRuntime() {
         return runtimeFor(state.selectedService());
     }
@@ -660,26 +437,6 @@ public final class TamboApp extends ToolkitApp {
 
     private ServiceRuntime runtimeFor(ComposeService service) {
         return runtimeByService.getOrDefault(service.name(), ServiceRuntime.notCreated());
-    }
-
-    private String formatPorts(List<PublishedPort> ports) {
-        if (ports.isEmpty()) {
-            return "none";
-        }
-        return ports.stream()
-                .map(this::formatPort)
-                .collect(Collectors.joining(", "));
-    }
-
-    private String formatPort(PublishedPort port) {
-        var host = port.host().isBlank() ? "*" : port.host();
-        return host + ":" + port.publishedPort() + " -> " + port.targetPort();
-    }
-
-    private String formatExitCode(ServiceRuntime runtime) {
-        return runtime.exitCode().isPresent()
-                ? Integer.toString(runtime.exitCode().getAsInt())
-                : "-";
     }
 
     private Element statusBar() {
