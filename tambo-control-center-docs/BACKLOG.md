@@ -21,7 +21,7 @@
 - [x] Error notification.
 - [x] Selected service logs follow.
 - [x] Ring buffer.
-- [ ] Log scrolling and follow/freeze.
+- [x] Log scrolling and follow/freeze.
 - [ ] All-services logs mode.
 - [x] Safe log session switching.
 - [ ] Up all.

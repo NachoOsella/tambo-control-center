@@ -62,6 +62,9 @@ The current screen has three panels:
 | `s` | Stop the selected service |
 | `r` | Restart the selected service |
 | `g` | Refresh runtime and health state |
+| `f` | Toggle log follow while Logs is focused |
+| `G` | Jump to the newest log line |
+| `c` | Clear the local log buffer |
 | `q` | Quit |
 
 Selection stops at the first and last service. It does not wrap around.
@@ -92,7 +95,7 @@ mvn exec:java -Dexec.mainClass=app.tambo.Main
 
 If no file is found, the application exits with an explanatory error instead of opening an empty dashboard.
 
-The application loads service definitions from `docker compose config --format json`, refreshes runtime state every five seconds, and follows logs for the selected service. Changing selection replaces the active log process. Use `u`, `s`, and `r` for lifecycle actions, or `g` to refresh immediately.
+The application loads service definitions from `docker compose config --format json`, refreshes runtime state every five seconds, and follows logs for the selected service. Changing selection replaces the active log process. Focus Logs to scroll with `j`/`k`, freeze with `f`, jump to the end with `G`, or clear the local buffer with `c`. Use `u`, `s`, and `r` for lifecycle actions, or `g` to refresh immediately.
 
 ## Development fixture
 

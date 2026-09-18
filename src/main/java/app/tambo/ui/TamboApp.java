@@ -51,6 +51,7 @@ public final class TamboApp extends ToolkitApp {
     private String refreshMessage = "";
     private OperationStatus operationStatus = OperationStatus.IDLE;
     private String operationMessage = "";
+    private LogViewport logViewport = LogViewport.atEnd();
     private ToolkitRunner.ScheduledAction runtimePolling;
 
     public TamboApp(
@@ -116,18 +117,20 @@ public final class TamboApp extends ToolkitApp {
         if (view.lines().isEmpty()) {
             content = text(logEmptyMessage(view)).dim();
         } else {
-            var firstVisibleLine = Math.max(0, view.lines().size() - VISIBLE_LOG_LINES);
-            var lines = view.lines().subList(firstVisibleLine, view.lines().size()).stream()
+            var range = logViewport.visibleRange(view.lines().size(), VISIBLE_LOG_LINES);
+            var lines = view.lines().subList(range.start(), range.end()).stream()
                     .map(line -> (Element) text(line))
                     .toArray(Element[]::new);
             content = column(lines);
         }
 
         return standardPanel("󰆍 Logs · " + view.serviceName(), content)
-                .bottomTitle(logStatusLabel(view.status()))
+                .bottomTitle(logStatusLabel(view.status())
+                        + " · follow: " + (logViewport.following() ? "on" : "off"))
                 .id("logs")
                 .focusable()
                 .focusedBorderColor(CYAN)
+                .onKeyEvent(this::handleLogKey)
                 .fill();
     }
 
@@ -255,6 +258,8 @@ public final class TamboApp extends ToolkitApp {
                 text("up/stop/restart").dim(),
                 text("g").fg(CYAN).bold(),
                 text("refresh").dim(),
+                text("f/G/c").fg(CYAN).bold(),
+                text("follow/end/clear").dim(),
                 text("q").fg(CYAN).bold(),
                 text("quit").dim(),
                 text("").fill(),
@@ -409,7 +414,27 @@ public final class TamboApp extends ToolkitApp {
         }
 
         if (state.selectedIndex() != previousSelection) {
+            logViewport = LogViewport.atEnd();
             selectedServiceLogs.follow(state.selectedService().name(), this::requestLogRender);
+        }
+        return EventResult.HANDLED;
+    }
+
+    private EventResult handleLogKey(KeyEvent event) {
+        int lineCount = selectedServiceLogs.view().lines().size();
+        if (event.isUp() || event.isChar('k')) {
+            logViewport = logViewport.scrollUp(lineCount);
+        } else if (event.isDown() || event.isChar('j')) {
+            logViewport = logViewport.scrollDown(lineCount);
+        } else if (event.isChar('f')) {
+            logViewport = logViewport.toggleFollow(lineCount);
+        } else if (event.isChar('G')) {
+            logViewport = logViewport.jumpToEnd();
+        } else if (event.isChar('c')) {
+            selectedServiceLogs.clear();
+            logViewport = LogViewport.atEnd();
+        } else {
+            return EventResult.UNHANDLED;
         }
         return EventResult.HANDLED;
     }

@@ -58,6 +58,15 @@ public final class SelectedServiceLogs implements AutoCloseable {
         return new LogView(serviceName, status, buffer.snapshot(), message);
     }
 
+    public void clear() {
+        Runnable notify;
+        synchronized (this) {
+            buffer.clear();
+            notify = onChange;
+        }
+        notify.run();
+    }
+
     private void acceptLine(long sessionGeneration, String line) {
         Runnable notify;
         synchronized (this) {
