@@ -34,7 +34,7 @@
 
 - [x] Compose events stream.
 - [x] Runtime refresh invalidation from events.
-- [ ] Reconciliation polling fallback.
+- [x] Reconciliation polling fallback.
 - [x] Stats snapshots.
 - [x] CPU and memory in details.
 - [ ] Debug logging.
