@@ -42,7 +42,7 @@
 - [ ] Integration tests with real Docker.
 - [ ] Shutdown race tests.
 - [ ] Handle service list changes after Compose edit.
-- [ ] Help overlay.
+- [x] Help overlay.
 
 ## P2: useful follow-ups
 
