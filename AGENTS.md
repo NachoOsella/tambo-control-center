@@ -8,8 +8,6 @@ The goal is to learn Java and architecture while building the project. The user 
 
 Work in very small increments.
 
-Do not implement an entire milestone, backlog, or roadmap at once.
-
 Each increment should:
 
 * have one clear goal,
@@ -17,10 +15,6 @@ Each increment should:
 * introduce one main concept,
 * leave the project working,
 * end with a focused diff review.
-
-After each increment, stop.
-
-Before a meaningful architectural decision, present the options and wait for the user's choice.
 
 ## Project constraints
 
@@ -49,14 +43,3 @@ Do not add Spring, Reactor, dependency injection frameworks, or large libraries 
 
 Avoid abstractions that are not needed by the current increment.
 
-## After each increment
-
-Explain:
-
-* what changed,
-* the important parts of the diff,
-* the Java concept involved,
-* what was verified,
-* one possible next small increment.
-
-Do not implement the next increment automatically.
