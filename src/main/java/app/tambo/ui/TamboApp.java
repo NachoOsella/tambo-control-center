@@ -30,6 +30,8 @@ import dev.tamboui.tui.event.Event;
 import dev.tamboui.tui.event.KeyEvent;
 
 import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -66,6 +68,7 @@ public final class TamboApp extends ToolkitApp {
     private final LogsController logsController;
     private LogMode logMode = LogMode.SELECTED_SERVICE;
     private final Map<String, ServiceOperation> activeOperations = new HashMap<>();
+    private final Deque<String> eventFeed = new ArrayDeque<>();
     private ServiceOperation globalOperation;
     private Map<String, ServiceRuntime> runtimeByService;
     private Map<String, ResourceUsage> resourceUsageByContainer;
@@ -84,6 +87,7 @@ public final class TamboApp extends ToolkitApp {
     private boolean errorOverlayVisible;
     private String lastError = "";
     private ServiceOperation pendingConfirmation;
+    private boolean eventsVisible;
     private boolean filterActive;
     private String filterQuery = "";
     private boolean logSearchActive;
@@ -125,7 +129,7 @@ public final class TamboApp extends ToolkitApp {
         runner().eventRouter().addGlobalHandler(this::handleGlobalEvent);
         logsController.follow(LogScope.selected(state.selectedService().name()), this::requestLogRender);
         composeEvents.start(
-                () -> runner().runOnRenderThread(this::requestRuntimeRefresh),
+                message -> runner().runOnRenderThread(() -> acceptComposeEvent(message)),
                 message -> runner().runOnRenderThread(() -> eventMessage = compact(message))
         );
         runtimePolling = runner().scheduleRepeating(
@@ -163,6 +167,9 @@ public final class TamboApp extends ToolkitApp {
         }
         if (pendingConfirmation != null) {
             return confirmationPanel();
+        }
+        if (eventsVisible) {
+            return eventsPanel();
         }
 
         var terminalSize = runner().tuiRunner().terminal().size();
@@ -206,6 +213,7 @@ public final class TamboApp extends ToolkitApp {
                         text("U / S / R       up, stop, restart all"),
                         text("B / X           build or recreate all"),
                         text("D               down project (confirm)"),
+                        text("E               show Compose events"),
                         text(""),
                         text("Runtime and logs").fg(CYAN).bold(),
                         text("g               refresh runtime"),
@@ -234,6 +242,23 @@ public final class TamboApp extends ToolkitApp {
                         text("Press e or Esc to close").dim()
                 ).spacing(1)
         ).borderColor(LIGHT_RED).padding(1).fill();
+    }
+
+    private Element eventsPanel() {
+        var content = eventFeed.isEmpty()
+                ? text("No Compose events observed").dim()
+                : column(eventFeed.stream().map(line -> (Element) text(line)).toArray(Element[]::new));
+        return standardPanel("󰐊 Compose events", content)
+                .borderColor(CYAN).padding(1).fill();
+    }
+
+    private void acceptComposeEvent(String message) {
+        eventFeed.addLast(message);
+        while (eventFeed.size() > 100) {
+            eventFeed.removeFirst();
+        }
+        eventMessage = compact(message);
+        requestRuntimeRefresh();
     }
 
     private Element confirmationPanel() {
@@ -659,6 +684,8 @@ public final class TamboApp extends ToolkitApp {
                 text("search/copy").dim(),
                 text("D").fg(CYAN).bold(),
                 text("down").dim(),
+                text("E").fg(CYAN).bold(),
+                text("events").dim(),
                 text("e").fg(CYAN).bold(),
                 text("details").dim(),                text("C-h/l C-j/k").fg(CYAN).bold(),
                 text("resize").dim(),
@@ -714,10 +741,12 @@ public final class TamboApp extends ToolkitApp {
             helpVisible = !helpVisible;
             return EventResult.HANDLED;
         }
-        if (keyEvent.isCancel() && (helpVisible || errorOverlayVisible || pendingConfirmation != null)) {
+        if (keyEvent.isCancel() && (helpVisible || errorOverlayVisible
+                || pendingConfirmation != null || eventsVisible)) {
             helpVisible = false;
             errorOverlayVisible = false;
             pendingConfirmation = null;
+            eventsVisible = false;
             return EventResult.HANDLED;
         }
         if (pendingConfirmation != null) {
@@ -736,6 +765,13 @@ public final class TamboApp extends ToolkitApp {
             return EventResult.HANDLED;
         }
         if (helpVisible || errorOverlayVisible) {
+            return EventResult.HANDLED;
+        }
+        if (keyEvent.isChar('E')) {
+            eventsVisible = !eventsVisible;
+            return EventResult.HANDLED;
+        }
+        if (eventsVisible) {
             return EventResult.HANDLED;
         }
         if (filterActive) {

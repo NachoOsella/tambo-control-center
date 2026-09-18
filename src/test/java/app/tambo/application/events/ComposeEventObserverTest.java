@@ -25,14 +25,14 @@ class ComposeEventObserverTest {
         var observer = new ComposeEventObserver(source, project);
         var eventCount = new AtomicInteger();
 
-        observer.start(eventCount::incrementAndGet, ignored -> { });
+        observer.start(ignored -> eventCount.incrementAndGet(), ignored -> { });
         var first = source.sessions.getFirst();
-        first.emit();
+        first.emit("first");
 
-        observer.start(eventCount::incrementAndGet, ignored -> { });
+        observer.start(ignored -> eventCount.incrementAndGet(), ignored -> { });
         var second = source.sessions.getLast();
-        first.emit();
-        second.emit();
+        first.emit("late");
+        second.emit("second");
 
         assertTrue(first.closed);
         assertEquals(2, eventCount.get());
@@ -45,7 +45,7 @@ class ComposeEventObserverTest {
         @Override
         public ComposeEventSession follow(
                 ProjectContext project,
-                Runnable onEvent,
+                Consumer<String> onEvent,
                 Consumer<String> onEnd
         ) {
             var session = new FakeSession(onEvent);
@@ -55,15 +55,15 @@ class ComposeEventObserverTest {
     }
 
     private static final class FakeSession implements ComposeEventSession {
-        private final Runnable onEvent;
+        private final Consumer<String> onEvent;
         private boolean closed;
 
-        private FakeSession(Runnable onEvent) {
+        private FakeSession(Consumer<String> onEvent) {
             this.onEvent = onEvent;
         }
 
-        private void emit() {
-            onEvent.run();
+        private void emit(String message) {
+            onEvent.accept(message);
         }
 
         @Override

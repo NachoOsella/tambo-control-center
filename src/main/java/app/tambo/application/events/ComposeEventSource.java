@@ -8,7 +8,7 @@ import java.util.function.Consumer;
 public interface ComposeEventSource {
     ComposeEventSession follow(
             ProjectContext project,
-            Runnable onEvent,
+            Consumer<String> onEvent,
             Consumer<String> onEnd
     ) throws IOException;
 }

@@ -23,7 +23,7 @@ public final class ComposeCliEventSource implements ComposeEventSource {
     @Override
     public ComposeEventSession follow(
             ProjectContext project,
-            Runnable onEvent,
+            Consumer<String> onEvent,
             Consumer<String> onEnd
     ) throws IOException {
         var process = StreamingProcess.start(
@@ -40,14 +40,22 @@ public final class ComposeCliEventSource implements ComposeEventSource {
         return process::close;
     }
 
-    private void parseEvent(String line, Runnable onEvent, Consumer<String> onEnd) {
+    private void parseEvent(String line, Consumer<String> onEvent, Consumer<String> onEnd) {
         try {
             var event = objectMapper.readTree(line);
             if (event != null && event.isObject()) {
-                onEvent.run();
+                onEvent.accept(formatEvent(event));
             }
         } catch (IOException exception) {
             onEnd.accept("Compose event stream returned invalid JSON: " + exception.getMessage());
         }
+    }
+
+    private String formatEvent(com.fasterxml.jackson.databind.JsonNode event) {
+        var service = event.path("service").asText("");
+        var action = event.path("action").asText("");
+        var type = event.path("type").asText("event");
+        var summary = service.isBlank() ? type : service;
+        return action.isBlank() ? summary : summary + " " + action;
     }
 }

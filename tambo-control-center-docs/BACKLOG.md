@@ -57,7 +57,7 @@
 - [x] optional down action with confirmation.
 - [x] save layout ratios.
 - [ ] mouse resize if worth it.
-- [ ] events panel.
+- [x] events panel.
 
 ## P3: later
 

@@ -18,7 +18,7 @@ public final class ComposeEventObserver implements AutoCloseable {
         this.project = Objects.requireNonNull(project, "project");
     }
 
-    public synchronized void start(Runnable onEvent, Consumer<String> onEnd) {
+    public synchronized void start(Consumer<String> onEvent, Consumer<String> onEnd) {
         Objects.requireNonNull(onEvent, "onEvent");
         Objects.requireNonNull(onEnd, "onEnd");
 
@@ -28,7 +28,7 @@ public final class ComposeEventObserver implements AutoCloseable {
         try {
             session = source.follow(
                     project,
-                    () -> acceptEvent(observerGeneration, onEvent),
+                    message -> acceptEvent(observerGeneration, onEvent, message),
                     message -> acceptEnd(observerGeneration, onEnd, message)
             );
         } catch (IOException exception) {
@@ -38,13 +38,17 @@ public final class ComposeEventObserver implements AutoCloseable {
         }
     }
 
-    private void acceptEvent(long observerGeneration, Runnable onEvent) {
+    private void acceptEvent(
+            long observerGeneration,
+            Consumer<String> onEvent,
+            String message
+    ) {
         synchronized (this) {
             if (observerGeneration != generation) {
                 return;
             }
         }
-        onEvent.run();
+        onEvent.accept(message);
     }
 
     private void acceptEnd(long observerGeneration, Consumer<String> onEnd, String message) {

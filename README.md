@@ -29,7 +29,7 @@ The primary UI entity is a Compose **service**, not an individual container. Con
 | Start, stop, and restart actions | Available for selected and all services |
 | Selected and all-service logs | Available with `l` toggle |
 | CPU, memory, network, and process statistics | Available for the selected service |
-| Compose events | Available as a refresh trigger |
+| Compose events | Available as a refresh trigger and event feed with `E` |
 | Debug logging | Available with `--debug` |
 | Resizable panels and narrow layout | Available |
 
@@ -69,6 +69,7 @@ The current screen has a global header, Services, Details, Resource Usage, and L
 | `U` / `S` / `R` | Start, stop, or restart all services |
 | `B` / `X` | Build or recreate all services |
 | `D` | Bring the Compose project down after confirmation |
+| `E` | Show the Compose event feed |
 | `g` | Refresh runtime and health state |
 | `/` | Filter services by name |
 | `f` | Toggle log follow while Logs is focused |
