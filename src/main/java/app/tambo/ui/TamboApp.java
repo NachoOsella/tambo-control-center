@@ -56,6 +56,7 @@ public final class TamboApp extends ToolkitApp {
     private static final Color SELECTED_BACKGROUND = Color.rgb(61, 55, 31);
 
     private final ProjectContext project;
+    private final List<ComposeService> allServices;
     private final ComposeEventObserver composeEvents;
     private final RefreshRuntimeSnapshot refreshRuntime;
     private final RefreshResourceStats refreshStats;
@@ -77,6 +78,8 @@ public final class TamboApp extends ToolkitApp {
     private LogViewport logViewport = LogViewport.atEnd();
     private LayoutState layout = LayoutState.defaults();
     private boolean helpVisible;
+    private boolean filterActive;
+    private String filterQuery = "";
     private ToolkitRunner.ScheduledAction runtimePolling;
     private ToolkitRunner.ScheduledAction statsPolling;
 
@@ -92,6 +95,7 @@ public final class TamboApp extends ToolkitApp {
             ComposeEventObserver composeEvents
     ) {
         this.project = Objects.requireNonNull(project, "project");
+        this.allServices = List.copyOf(services);
         this.composeEvents = Objects.requireNonNull(composeEvents, "composeEvents");
         this.runtimeByService = Map.copyOf(runtimeByService);
         this.resourceUsageByContainer = Map.copyOf(resourceUsageByContainer);
@@ -180,8 +184,8 @@ public final class TamboApp extends ToolkitApp {
                         text("Runtime and logs").fg(CYAN).bold(),
                         text("g               refresh runtime"),
                         text("l               selected/all logs"),
-                        text("f / G / c       follow, end, clear logs"),
-                        text(""),
+                        text("/               filter services"),
+                        text("f / G / c       follow, end, clear logs"),                        text(""),
                         text("Layout").fg(CYAN).bold(),
                         text("Ctrl+h/l        resize Services column"),
                         text("Ctrl+j/k        resize overview height"),
@@ -207,7 +211,7 @@ public final class TamboApp extends ToolkitApp {
         var connected = refreshStatus != RefreshStatus.FAILED;
         var connection = text(connected ? "󰌘 Docker Connected" : "󰅙 Docker Unavailable")
                 .fg(connected ? LIGHT_GREEN : LIGHT_RED);
-        var services = text("󰏗 " + state.services().size() + " services").fg(LIGHT_BLUE);
+        var services = text("󰏗 " + allServices.size() + " services").fg(LIGHT_BLUE);
         var running = text("󰐊 " + countRuntime(RuntimeState.RUNNING) + " running")
                 .fg(LIGHT_GREEN);
         var stopped = text("󰓛 " + stoppedRuntimeCount() + " stopped")
@@ -224,10 +228,16 @@ public final class TamboApp extends ToolkitApp {
     }
 
     private long countRuntime(RuntimeState runtimeState) {
-        return state.services().stream()
+        return allServices.stream()
                 .map(this::runtimeFor)
                 .filter(runtime -> runtime.runtimeState() == runtimeState)
                 .count();
+    }
+
+    private String serviceCountLabel() {
+        return filterActive
+                ? "Services · " + state.services().size() + "/" + allServices.size()
+                : "Services · " + allServices.size();
     }
 
     private long stoppedRuntimeCount() {
@@ -235,7 +245,7 @@ public final class TamboApp extends ToolkitApp {
     }
 
     private Panel servicesPanel() {
-        return standardPanel("󰏗 Services · " + state.services().size(), serviceList())
+        return standardPanel("󰏗 " + serviceCountLabel(), serviceList())
                 .id("services")
                 .focusable()
                 .focusedBorderColor(CYAN)
@@ -411,6 +421,46 @@ public final class TamboApp extends ToolkitApp {
         return name == null ? project.root().toString() : name.toString();
     }
 
+    private EventResult handleFilterKey(KeyEvent event) {
+        if (event.isCancel()) {
+            filterActive = false;
+            filterQuery = "";
+            rebuildFilteredServices();
+            return EventResult.HANDLED;
+        }
+        if (event.isDeleteBackward()) {
+            if (!filterQuery.isEmpty()) {
+                filterQuery = filterQuery.substring(0, filterQuery.length() - 1);
+                rebuildFilteredServices();
+            }
+            return EventResult.HANDLED;
+        }
+        if (event.character() >= 32 && !Character.isISOControl(event.character())) {
+            var previousQuery = filterQuery;
+            filterQuery += event.character();
+            if (!rebuildFilteredServices()) {
+                filterQuery = previousQuery;
+            }
+            return EventResult.HANDLED;
+        }
+        return EventResult.HANDLED;
+    }
+
+    private boolean rebuildFilteredServices() {
+        var selectedName = state.selectedService().name();
+        var matches = ServiceFilter.matching(allServices, filterQuery);
+        if (matches.isEmpty()) {
+            return false;
+        }
+
+        var selectedIndex = matches.stream()
+                .map(ComposeService::name)
+                .toList()
+                .indexOf(selectedName);
+        state = new UiState(matches, Math.max(0, selectedIndex));
+        return true;
+    }
+
     private Element serviceList() {
         var rows = new Element[state.services().size()];
         for (int index = 0; index < state.services().size(); index++) {
@@ -533,6 +583,8 @@ public final class TamboApp extends ToolkitApp {
                 text("refresh").dim(),
                 text("l").fg(CYAN).bold(),
                 text("selected/all").dim(),
+                text("/").fg(CYAN).bold(),
+                text(filterActive ? filterQuery : "filter").dim(),
                 text("f/G/c").fg(CYAN).bold(),
                 text("follow/end/clear").dim(),
                 text("C-h/l C-j/k").fg(CYAN).bold(),
@@ -570,11 +622,23 @@ public final class TamboApp extends ToolkitApp {
         if (!(event instanceof KeyEvent keyEvent)) {
             return EventResult.UNHANDLED;
         }
+        if (keyEvent.isChar('q')) {
+            quit();
+            return EventResult.HANDLED;
+        }
         if (keyEvent.isChar('?')) {
             helpVisible = !helpVisible;
             return EventResult.HANDLED;
         }
         if (helpVisible) {
+            return EventResult.HANDLED;
+        }
+        if (filterActive) {
+            return handleFilterKey(keyEvent);
+        }
+        if (keyEvent.isChar('/')) {
+            filterActive = true;
+            filterQuery = "";
             return EventResult.HANDLED;
         }
         if (keyEvent.hasCtrl()) {
@@ -787,6 +851,13 @@ public final class TamboApp extends ToolkitApp {
     }
 
     private EventResult handleServiceKey(KeyEvent event) {
+        if (event.isChar('q')) {
+            quit();
+            return EventResult.HANDLED;
+        }
+        if (filterActive) {
+            return handleFilterKey(event);
+        }
         var previousSelection = state.selectedIndex();
         if (event.isDown() || event.isChar('j')) {
             state = state.selectNext();
@@ -809,6 +880,10 @@ public final class TamboApp extends ToolkitApp {
     }
 
     private EventResult handleLogKey(KeyEvent event) {
+        if (event.isChar('q')) {
+            quit();
+            return EventResult.HANDLED;
+        }
         int lineCount = logsController.view().lines().size();
         if (event.isUp() || event.isChar('k')) {
             logViewport = logViewport.scrollUp(lineCount);

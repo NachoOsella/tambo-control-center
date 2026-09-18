@@ -65,6 +65,7 @@ The current screen has a global header, Services, Details, Resource Usage, and L
 | `r` | Restart the selected service |
 | `U` / `S` / `R` | Start, stop, or restart all services |
 | `g` | Refresh runtime and health state |
+| `/` | Filter services by name |
 | `f` | Toggle log follow while Logs is focused |
 | `G` | Jump to the newest log line |
 | `c` | Clear the local log buffer |
@@ -100,7 +101,7 @@ mvn exec:java -Dexec.mainClass=app.tambo.Main
 
 If no file is found, the application exits with an explanatory error instead of opening an empty dashboard. It also verifies that Docker Compose is available before opening the dashboard.
 
-The application loads service definitions from `docker compose config --format json`, refreshes runtime state every five seconds, and also listens to `docker compose events --json` to request faster refreshes. Polling remains the fallback. It follows logs for the selected service or all services. Press `l` to switch log scope. Changing selection replaces the active selected-service log process. Focus Logs to scroll with `j`/`k`, freeze with `f`, jump to the end with `G`, or clear the local buffer with `c`. Use `u`, `s`, and `r` for selected-service actions, `U`, `S`, and `R` for all services, or `g` to refresh immediately.
+The application loads service definitions from `docker compose config --format json`, refreshes runtime state every five seconds, and also listens to `docker compose events --json` to request faster refreshes. Polling remains the fallback. It follows logs for the selected service or all services, and `/` filters the visible service list by name. Press `l` to switch log scope. Changing selection replaces the active selected-service log process. Focus Logs to scroll with `j`/`k`, freeze with `f`, jump to the end with `G`, or clear the local buffer with `c`. Use `u`, `s`, and `r` for selected-service actions, `U`, `S`, and `R` for all services, or `g` to refresh immediately.
 
 ## Development fixture
 
@@ -146,6 +147,7 @@ The current tests cover the implemented foundation:
 - `ComposeEventObserverTest`: event forwarding and replaced-stream isolation;
 - `ComposeCliStatsReaderTest`: CPU, memory, network, process, and container-name mapping;
 - `RefreshResourceStatsTest`: asynchronous statistics results and failures;
+- `ServiceFilterTest`: case-insensitive service filtering and blank-query behavior;
 - `ProcessRunnerTest`: output capture, exit codes, and timeout handling;
 - `StreamingProcessTest`: line delivery and process cancellation;
 - `UiStateTest`: service selection and boundary behavior.

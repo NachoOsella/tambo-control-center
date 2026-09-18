@@ -46,7 +46,7 @@
 
 ## P2: useful follow-ups
 
-- [ ] Filter services.
+- [x] Filter services.
 - [ ] Search logs.
 - [ ] Copy log line.
 - [ ] Show service dependencies.
