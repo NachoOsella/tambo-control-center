@@ -16,6 +16,7 @@ import app.tambo.domain.service.PublishedPort;
 import app.tambo.domain.service.ResourceUsage;
 import app.tambo.domain.service.RuntimeState;
 import app.tambo.domain.service.ServiceRuntime;
+import app.tambo.project.ComposeFileChangeDetector;
 import app.tambo.project.ProjectContext;
 
 import dev.tamboui.style.Color;
@@ -56,6 +57,7 @@ public final class TamboApp extends ToolkitApp {
     private static final Color SELECTED_BACKGROUND = Color.rgb(61, 55, 31);
 
     private final ProjectContext project;
+    private final ComposeFileChangeDetector composeFileChanges;
     private final List<ComposeService> allServices;
     private final ComposeEventObserver composeEvents;
     private final RefreshRuntimeSnapshot refreshRuntime;
@@ -84,9 +86,11 @@ public final class TamboApp extends ToolkitApp {
     private String filterQuery = "";
     private ToolkitRunner.ScheduledAction runtimePolling;
     private ToolkitRunner.ScheduledAction statsPolling;
+    private boolean composeFileChanged;
 
     public TamboApp(
             ProjectContext project,
+            ComposeFileChangeDetector composeFileChanges,
             List<ComposeService> services,
             Map<String, ServiceRuntime> runtimeByService,
             Map<String, ResourceUsage> resourceUsageByContainer,
@@ -97,6 +101,7 @@ public final class TamboApp extends ToolkitApp {
             ComposeEventObserver composeEvents
     ) {
         this.project = Objects.requireNonNull(project, "project");
+        this.composeFileChanges = Objects.requireNonNull(composeFileChanges, "composeFileChanges");
         this.allServices = List.copyOf(services);
         this.composeEvents = Objects.requireNonNull(composeEvents, "composeEvents");
         this.runtimeByService = Map.copyOf(runtimeByService);
@@ -118,7 +123,10 @@ public final class TamboApp extends ToolkitApp {
                 message -> runner().runOnRenderThread(() -> eventMessage = compact(message))
         );
         runtimePolling = runner().scheduleRepeating(
-                () -> runner().runOnRenderThread(() -> requestRuntimeRefresh()),
+                () -> runner().runOnRenderThread(() -> {
+                    checkComposeFile();
+                    requestRuntimeRefresh();
+                }),
                 RUNTIME_REFRESH_INTERVAL
         );
         statsPolling = runner().scheduleRepeating(
@@ -615,7 +623,18 @@ public final class TamboApp extends ToolkitApp {
         ).spacing(1).length(1);
     }
 
+    private void checkComposeFile() {
+        if (composeFileChanges.hasChanged()) {
+            composeFileChanged = true;
+            eventMessage = "Compose file changed; restart Tambo to reload services";
+        }
+    }
+
     private Element statusIndicator() {
+        if (composeFileChanged) {
+            return text("󰀪 Compose file changed; restart Tambo").fg(LIGHT_YELLOW);
+        }
+
         if (operationStatus != OperationStatus.IDLE) {
             return switch (operationStatus) {
                 case RUNNING -> text("󰐊 " + operationMessage).fg(LIGHT_YELLOW);

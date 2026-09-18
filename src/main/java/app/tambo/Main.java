@@ -18,6 +18,7 @@ import app.tambo.infrastructure.compose.ComposeCliServiceLogSource;
 import app.tambo.infrastructure.compose.ComposeCliStatsReader;
 import app.tambo.infrastructure.diagnostics.DebugLogger;
 import app.tambo.infrastructure.process.ProcessRunner;
+import app.tambo.project.ComposeFileChangeDetector;
 import app.tambo.project.ProjectLocator;
 import app.tambo.ui.TamboApp;
 
@@ -109,6 +110,7 @@ public final class Main {
         );
         new TamboApp(
                 projectContext,
+                new ComposeFileChangeDetector(projectContext),
                 services,
                 runtime,
                 stats,
