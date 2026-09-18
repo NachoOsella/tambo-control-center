@@ -10,17 +10,17 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public final class UpService implements AutoCloseable {
+public final class RunServiceOperation implements AutoCloseable {
     private final ServiceLifecycleGateway lifecycle;
     private final ProjectContext project;
     private final ExecutorService executor;
     private final Set<String> activeServices = ConcurrentHashMap.newKeySet();
 
-    public UpService(ServiceLifecycleGateway lifecycle, ProjectContext project) {
+    public RunServiceOperation(ServiceLifecycleGateway lifecycle, ProjectContext project) {
         this(lifecycle, project, Executors.newVirtualThreadPerTaskExecutor());
     }
 
-    UpService(
+    RunServiceOperation(
             ServiceLifecycleGateway lifecycle,
             ProjectContext project,
             ExecutorService executor
@@ -30,20 +30,24 @@ public final class UpService implements AutoCloseable {
         this.executor = Objects.requireNonNull(executor, "executor");
     }
 
-    public CompletableFuture<LifecycleResult> execute(String serviceName) {
+    public CompletableFuture<LifecycleResult> execute(
+            String serviceName,
+            ServiceOperation operation
+    ) {
         Objects.requireNonNull(serviceName, "serviceName");
+        Objects.requireNonNull(operation, "operation");
         if (!activeServices.add(serviceName)) {
             return CompletableFuture.completedFuture(new LifecycleResult.Rejected(serviceName));
         }
 
         return CompletableFuture
-                .supplyAsync(() -> runUp(serviceName), executor)
+                .supplyAsync(() -> run(serviceName, operation), executor)
                 .whenComplete((result, error) -> activeServices.remove(serviceName));
     }
 
-    private LifecycleResult runUp(String serviceName) {
+    private LifecycleResult run(String serviceName, ServiceOperation operation) {
         try {
-            return lifecycle.up(project, serviceName);
+            return lifecycle.execute(project, serviceName, operation);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             return new LifecycleResult.Failed(

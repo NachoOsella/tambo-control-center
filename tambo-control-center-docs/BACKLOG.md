@@ -15,10 +15,10 @@
 - [x] Manual refresh.
 - [x] Periodic runtime refresh.
 - [x] Up selected service.
-- [ ] Stop selected service.
-- [ ] Restart selected service.
-- [ ] Operation state.
-- [ ] Error notification.
+- [x] Stop selected service.
+- [x] Restart selected service.
+- [x] Operation state.
+- [x] Error notification.
 - [ ] Selected service logs follow.
 - [ ] Ring buffer.
 - [ ] Log scrolling and follow/freeze.

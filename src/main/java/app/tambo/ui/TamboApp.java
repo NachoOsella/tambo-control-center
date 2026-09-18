@@ -2,7 +2,8 @@ package app.tambo.ui;
 
 import app.tambo.application.service.LifecycleResult;
 import app.tambo.application.service.RefreshRuntimeSnapshot;
-import app.tambo.application.service.UpService;
+import app.tambo.application.service.RunServiceOperation;
+import app.tambo.application.service.ServiceOperation;
 import app.tambo.domain.service.ComposeService;
 import app.tambo.domain.service.PublishedPort;
 import app.tambo.domain.service.ServiceRuntime;
@@ -17,11 +18,10 @@ import dev.tamboui.tui.event.Event;
 import dev.tamboui.tui.event.KeyEvent;
 
 import java.time.Duration;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
@@ -40,8 +40,8 @@ public final class TamboApp extends ToolkitApp {
 
     private final ProjectContext project;
     private final RefreshRuntimeSnapshot refreshRuntime;
-    private final UpService upService;
-    private final Set<String> startingServices = new HashSet<>();
+    private final RunServiceOperation serviceOperations;
+    private final Map<String, ServiceOperation> activeOperations = new HashMap<>();
     private Map<String, ServiceRuntime> runtimeByService;
     private UiState state;
     private RefreshStatus refreshStatus = RefreshStatus.IDLE;
@@ -55,12 +55,12 @@ public final class TamboApp extends ToolkitApp {
             List<ComposeService> services,
             Map<String, ServiceRuntime> runtimeByService,
             RefreshRuntimeSnapshot refreshRuntime,
-            UpService upService
+            RunServiceOperation serviceOperations
     ) {
         this.project = Objects.requireNonNull(project, "project");
         this.runtimeByService = Map.copyOf(runtimeByService);
         this.refreshRuntime = Objects.requireNonNull(refreshRuntime, "refreshRuntime");
-        this.upService = Objects.requireNonNull(upService, "upService");
+        this.serviceOperations = Objects.requireNonNull(serviceOperations, "serviceOperations");
         this.state = new UiState(services, 0);
     }
 
@@ -77,7 +77,7 @@ public final class TamboApp extends ToolkitApp {
     @Override
     protected void onStop() {
         runtimePolling.cancel();
-        upService.close();
+        serviceOperations.close();
         refreshRuntime.close();
     }
 
@@ -177,7 +177,8 @@ public final class TamboApp extends ToolkitApp {
     }
 
     private String selectedOperation() {
-        return startingServices.contains(state.selectedService().name()) ? "starting" : "idle";
+        var operation = activeOperations.get(state.selectedService().name());
+        return operation == null ? "idle" : operation.activeLabel();
     }
 
     private ServiceRuntime runtimeFor(ComposeService service) {
@@ -210,8 +211,8 @@ public final class TamboApp extends ToolkitApp {
                 text("focus").dim(),
                 text("↑↓ j/k").fg(CYAN).bold(),
                 text("select").dim(),
-                text("u").fg(CYAN).bold(),
-                text("up").dim(),
+                text("u/s/r").fg(CYAN).bold(),
+                text("up/stop/restart").dim(),
                 text("g").fg(CYAN).bold(),
                 text("refresh").dim(),
                 text("q").fg(CYAN).bold(),
@@ -244,7 +245,13 @@ public final class TamboApp extends ToolkitApp {
             return EventResult.UNHANDLED;
         }
         if (keyEvent.isChar('u')) {
-            return upSelectedService();
+            return runSelectedServiceOperation(ServiceOperation.UP);
+        }
+        if (keyEvent.isChar('s')) {
+            return runSelectedServiceOperation(ServiceOperation.STOP);
+        }
+        if (keyEvent.isChar('r')) {
+            return runSelectedServiceOperation(ServiceOperation.RESTART);
         }
         if (keyEvent.isChar('g')) {
             return requestRuntimeRefresh();
@@ -252,34 +259,46 @@ public final class TamboApp extends ToolkitApp {
         return EventResult.UNHANDLED;
     }
 
-    private EventResult upSelectedService() {
+    private EventResult runSelectedServiceOperation(ServiceOperation operation) {
         var serviceName = state.selectedService().name();
-        if (!startingServices.add(serviceName)) {
+        if (activeOperations.putIfAbsent(serviceName, operation) != null) {
             return EventResult.HANDLED;
         }
 
         operationStatus = OperationStatus.RUNNING;
-        operationMessage = "starting " + serviceName;
-        upService.execute(serviceName).whenComplete((result, error) -> {
+        operationMessage = operation.activeLabel() + " " + serviceName;
+        serviceOperations.execute(serviceName, operation).whenComplete((result, error) -> {
             if (!runner().isRunning()) {
                 return;
             }
-            runner().runOnRenderThread(() -> finishUp(serviceName, result, error));
+            runner().runOnRenderThread(() -> finishServiceOperation(
+                    serviceName,
+                    operation,
+                    result,
+                    error
+            ));
         });
         return EventResult.HANDLED;
     }
 
-    private void finishUp(String serviceName, LifecycleResult result, Throwable error) {
-        startingServices.remove(serviceName);
+    private void finishServiceOperation(
+            String serviceName,
+            ServiceOperation operation,
+            LifecycleResult result,
+            Throwable error
+    ) {
+        activeOperations.remove(serviceName);
 
         if (error != null) {
             operationStatus = OperationStatus.FAILED;
-            operationMessage = "up " + serviceName + " failed: " + errorMessage(error);
+            operationMessage = operation.commandName() + " " + serviceName
+                    + " failed: " + errorMessage(error);
             return;
         }
         if (result instanceof LifecycleResult.Failed failure) {
             operationStatus = OperationStatus.FAILED;
-            operationMessage = "up " + serviceName + " failed: " + compact(failure.message());
+            operationMessage = operation.commandName() + " " + serviceName
+                    + " failed: " + compact(failure.message());
             return;
         }
         if (result instanceof LifecycleResult.Rejected) {
@@ -289,7 +308,7 @@ public final class TamboApp extends ToolkitApp {
         }
 
         operationStatus = OperationStatus.SUCCEEDED;
-        operationMessage = "started " + serviceName;
+        operationMessage = operation.completedLabel() + " " + serviceName;
         requestRuntimeRefresh();
     }
 

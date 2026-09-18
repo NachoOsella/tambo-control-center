@@ -2,6 +2,7 @@ package app.tambo.infrastructure.compose;
 
 import app.tambo.application.service.LifecycleResult;
 import app.tambo.application.service.ServiceLifecycleGateway;
+import app.tambo.application.service.ServiceOperation;
 import app.tambo.infrastructure.process.Command;
 import app.tambo.infrastructure.process.ProcessRunner;
 import app.tambo.project.ProjectContext;
@@ -23,11 +24,12 @@ public final class ComposeCliServiceLifecycle implements ServiceLifecycleGateway
     }
 
     @Override
-    public LifecycleResult up(ProjectContext project, String serviceName) throws InterruptedException {
-        var command = new Command(
-                List.of("docker", "compose", "up", "-d", serviceName),
-                project.root()
-        );
+    public LifecycleResult execute(
+            ProjectContext project,
+            String serviceName,
+            ServiceOperation operation
+    ) throws InterruptedException {
+        var command = new Command(arguments(operation, serviceName), project.root());
 
         try {
             var result = processRunner.run(command, OPERATION_TIMEOUT);
@@ -40,7 +42,8 @@ public final class ComposeCliServiceLifecycle implements ServiceLifecycleGateway
                     LifecycleResult.FailureKind.COMMAND_FAILED,
                     OptionalInt.of(result.exitCode()),
                     result.stderr(),
-                    "docker compose up failed with exit code " + result.exitCode()
+                    "docker compose " + operation.commandName()
+                            + " failed with exit code " + result.exitCode()
             );
         } catch (TimeoutException exception) {
             return failure(
@@ -48,7 +51,7 @@ public final class ComposeCliServiceLifecycle implements ServiceLifecycleGateway
                     LifecycleResult.FailureKind.TIMED_OUT,
                     OptionalInt.empty(),
                     exception.getMessage(),
-                    "docker compose up timed out"
+                    "docker compose " + operation.commandName() + " timed out"
             );
         } catch (IOException exception) {
             return failure(
@@ -56,9 +59,17 @@ public final class ComposeCliServiceLifecycle implements ServiceLifecycleGateway
                     LifecycleResult.FailureKind.UNAVAILABLE,
                     OptionalInt.empty(),
                     exception.getMessage(),
-                    "unable to run docker compose up"
+                    "unable to run docker compose " + operation.commandName()
             );
         }
+    }
+
+    private List<String> arguments(ServiceOperation operation, String serviceName) {
+        return switch (operation) {
+            case UP -> List.of("docker", "compose", "up", "-d", serviceName);
+            case STOP -> List.of("docker", "compose", "stop", serviceName);
+            case RESTART -> List.of("docker", "compose", "restart", serviceName);
+        };
     }
 
     private LifecycleResult.Failed failure(

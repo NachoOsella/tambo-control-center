@@ -3,5 +3,9 @@ package app.tambo.application.service;
 import app.tambo.project.ProjectContext;
 
 public interface ServiceLifecycleGateway {
-    LifecycleResult up(ProjectContext project, String serviceName) throws InterruptedException;
+    LifecycleResult execute(
+            ProjectContext project,
+            String serviceName,
+            ServiceOperation operation
+    ) throws InterruptedException;
 }
