@@ -37,7 +37,7 @@
 - [x] Reconciliation polling fallback.
 - [x] Stats snapshots.
 - [x] CPU and memory in details.
-- [ ] Debug logging.
+- [x] Debug logging.
 - [ ] Better error details overlay.
 - [ ] Integration tests with real Docker.
 - [ ] Shutdown race tests.

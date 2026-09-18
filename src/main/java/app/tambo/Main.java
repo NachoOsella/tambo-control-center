@@ -10,12 +10,13 @@ import app.tambo.domain.service.ContainerInstance;
 import app.tambo.domain.service.ResourceUsage;
 import app.tambo.domain.service.ServiceRuntime;
 import app.tambo.infrastructure.compose.ComposeCliConfigReader;
+import app.tambo.infrastructure.compose.ComposeCliEventSource;
 import app.tambo.infrastructure.compose.ComposeCliPreflight;
 import app.tambo.infrastructure.compose.ComposeCliRuntimeReader;
-import app.tambo.infrastructure.compose.ComposeCliServiceLogSource;
-import app.tambo.infrastructure.compose.ComposeCliEventSource;
 import app.tambo.infrastructure.compose.ComposeCliServiceLifecycle;
+import app.tambo.infrastructure.compose.ComposeCliServiceLogSource;
 import app.tambo.infrastructure.compose.ComposeCliStatsReader;
+import app.tambo.infrastructure.diagnostics.DebugLogger;
 import app.tambo.infrastructure.process.ProcessRunner;
 import app.tambo.project.ProjectLocator;
 import app.tambo.ui.TamboApp;
@@ -33,16 +34,27 @@ public final class Main {
     }
 
     public static void main(String[] args) throws Exception {
+        int exitCode;
+        try (var debug = DebugLogger.open(hasArgument(args, "--debug"))) {
+            exitCode = run(debug);
+        }
+        if (exitCode != 0) {
+            System.exit(exitCode);
+        }
+    }
+
+    private static int run(DebugLogger debug) throws Exception {
         var startDirectory = Path.of(".").toAbsolutePath().normalize();
+        debug.info("Starting Tambo from " + startDirectory);
         var project = new ProjectLocator().locate(startDirectory);
 
         if (project.isEmpty()) {
             System.err.println("No Compose file found from " + startDirectory + " or any parent directory.");
-            System.exit(1);
-            return;
+            return 1;
         }
 
         var projectContext = project.orElseThrow();
+        debug.info("Using Compose project " + projectContext.composeFile());
         var processRunner = new ProcessRunner();
         var objectMapper = new ObjectMapper();
         var preflight = new ComposeCliPreflight(processRunner);
@@ -56,23 +68,26 @@ public final class Main {
             preflight.verify(projectContext);
             services = configReader.readServices(projectContext);
             runtime = runtimeReader.readRuntime(projectContext, services);
+            debug.info("Loaded " + services.size() + " services");
         } catch (IOException | TimeoutException exception) {
+            debug.error("Unable to load Compose project", exception);
             System.err.println("Unable to load Compose project: " + exception.getMessage());
-            System.exit(1);
-            return;
+            return 1;
         } catch (InterruptedException exception) {
+            debug.error("Unable to load Compose project because startup was interrupted", exception);
             Thread.currentThread().interrupt();
             System.err.println("Unable to load Compose project: interrupted");
-            System.exit(1);
-            return;
+            return 1;
         }
 
         Map<String, ResourceUsage> stats;
         try {
             stats = statsReader.readStats(projectContext, containers(runtime));
         } catch (IOException | TimeoutException exception) {
+            debug.error("Initial resource stats unavailable", exception);
             stats = Map.of();
         } catch (InterruptedException exception) {
+            debug.error("Initial resource stats were interrupted", exception);
             Thread.currentThread().interrupt();
             stats = Map.of();
         }
@@ -103,6 +118,17 @@ public final class Main {
                 logsController,
                 composeEvents
         ).run();
+        debug.info("Tambo stopped");
+        return 0;
+    }
+
+    private static boolean hasArgument(String[] args, String expected) {
+        for (var argument : args) {
+            if (expected.equals(argument)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static List<ContainerInstance> containers(Map<String, ServiceRuntime> runtime) {

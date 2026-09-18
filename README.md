@@ -30,6 +30,7 @@ The primary UI entity is a Compose **service**, not an individual container. Con
 | Selected and all-service logs | Available with `l` toggle |
 | CPU, memory, network, and process statistics | Available for the selected service |
 | Compose events | Available as a refresh trigger |
+| Debug logging | Available with `--debug` |
 | Resizable panels and narrow layout | Available |
 
 The repository is intentionally not a complete Docker dashboard yet. The README describes the current implementation separately from the target design so that planned behavior is not mistaken for an available feature.
@@ -90,6 +91,7 @@ Run these commands from the repository root:
 ```bash
 mvn test
 mvn exec:java -Dexec.mainClass=app.tambo.Main
+# Add -Dexec.args=--debug to write diagnostics to the local state log.
 ```
 
 `Main` starts from the current working directory and searches upward for the first supported Compose filename, in this order:
