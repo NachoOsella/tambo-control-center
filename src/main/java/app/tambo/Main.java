@@ -2,15 +2,19 @@ package app.tambo;
 
 import app.tambo.application.events.ComposeEventObserver;
 import app.tambo.application.logs.LogsController;
+import app.tambo.application.service.RefreshResourceStats;
 import app.tambo.application.service.RefreshRuntimeSnapshot;
 import app.tambo.application.service.RunServiceOperation;
 import app.tambo.domain.service.ComposeService;
+import app.tambo.domain.service.ContainerInstance;
+import app.tambo.domain.service.ResourceUsage;
 import app.tambo.domain.service.ServiceRuntime;
 import app.tambo.infrastructure.compose.ComposeCliConfigReader;
 import app.tambo.infrastructure.compose.ComposeCliRuntimeReader;
 import app.tambo.infrastructure.compose.ComposeCliServiceLogSource;
 import app.tambo.infrastructure.compose.ComposeCliEventSource;
 import app.tambo.infrastructure.compose.ComposeCliServiceLifecycle;
+import app.tambo.infrastructure.compose.ComposeCliStatsReader;
 import app.tambo.infrastructure.process.ProcessRunner;
 import app.tambo.project.ProjectLocator;
 import app.tambo.ui.TamboApp;
@@ -42,6 +46,7 @@ public final class Main {
         var objectMapper = new ObjectMapper();
         var configReader = new ComposeCliConfigReader(processRunner, objectMapper);
         var runtimeReader = new ComposeCliRuntimeReader(processRunner, objectMapper);
+        var statsReader = new ComposeCliStatsReader(processRunner, objectMapper);
 
         List<ComposeService> services;
         Map<String, ServiceRuntime> runtime;
@@ -59,7 +64,18 @@ public final class Main {
             return;
         }
 
+        Map<String, ResourceUsage> stats;
+        try {
+            stats = statsReader.readStats(projectContext, containers(runtime));
+        } catch (IOException | TimeoutException exception) {
+            stats = Map.of();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            stats = Map.of();
+        }
+
         var refreshRuntime = new RefreshRuntimeSnapshot(runtimeReader, projectContext, services);
+        var refreshStats = new RefreshResourceStats(statsReader, projectContext);
         var serviceOperations = new RunServiceOperation(
                 new ComposeCliServiceLifecycle(processRunner),
                 projectContext
@@ -77,10 +93,18 @@ public final class Main {
                 projectContext,
                 services,
                 runtime,
+                stats,
                 refreshRuntime,
+                refreshStats,
                 serviceOperations,
                 logsController,
                 composeEvents
         ).run();
+    }
+
+    private static List<ContainerInstance> containers(Map<String, ServiceRuntime> runtime) {
+        return runtime.values().stream()
+                .flatMap(service -> service.instances().stream())
+                .toList();
     }
 }

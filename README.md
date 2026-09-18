@@ -3,7 +3,7 @@
 A Java terminal UI for inspecting and operating the Docker Compose project in the current repository.
 
 > [!WARNING]
-> Tambo is pre-release and is being implemented in small increments. The current runnable slice provides Compose discovery, runtime observation, selected and global lifecycle actions, and live logs for selected or all services. Resource statistics are not available yet.
+> Tambo is pre-release and is being implemented in small increments. The current runnable slice provides Compose discovery, runtime observation, selected and global lifecycle actions, live logs for selected or all services, and current resource statistics for running containers.
 
 ## Why Tambo
 
@@ -28,7 +28,7 @@ The primary UI entity is a Compose **service**, not an individual container. Con
 | Runtime and health observation | Refreshed every five seconds and manually with `g` |
 | Start, stop, and restart actions | Available for selected and all services |
 | Selected and all-service logs | Available with `l` toggle |
-| Stats | Planned |
+| CPU, memory, network, and process statistics | Available for the selected service |
 | Compose events | Available as a refresh trigger |
 | Resizable panels and narrow layout | Available |
 
@@ -36,7 +36,7 @@ The repository is intentionally not a complete Docker dashboard yet. The README 
 
 ## Current UI
 
-The current screen has a global header, three panels, and a contextual footer. The header summarizes the project and observed runtime counts. On narrow terminals, Services and Details stack vertically.
+The current screen has a global header, Services, Details, Resource Usage, and Logs panels, plus a contextual footer. The header summarizes the project and observed runtime counts. On narrow terminals, the upper panels stack vertically.
 
 ```text
 ┌ Tambo | project ─────────────────────────────────────────────────────┐
@@ -144,6 +144,8 @@ The current tests cover the implemented foundation:
 - `RunServiceOperationTest`: asynchronous lifecycle execution and individual/global conflict rejection;
 - `LogsControllerTest`: selected/all scopes, session replacement, and late-line rejection;
 - `ComposeEventObserverTest`: event forwarding and replaced-stream isolation;
+- `ComposeCliStatsReaderTest`: CPU, memory, network, process, and container-name mapping;
+- `RefreshResourceStatsTest`: asynchronous statistics results and failures;
 - `ProcessRunnerTest`: output capture, exit codes, and timeout handling;
 - `StreamingProcessTest`: line delivery and process cancellation;
 - `UiStateTest`: service selection and boundary behavior.

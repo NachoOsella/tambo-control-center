@@ -5,12 +5,15 @@ import app.tambo.application.logs.LogMode;
 import app.tambo.application.logs.LogScope;
 import app.tambo.application.logs.LogsController;
 import app.tambo.application.service.LifecycleResult;
+import app.tambo.application.service.RefreshResourceStats;
 import app.tambo.application.service.RefreshRuntimeSnapshot;
 import app.tambo.application.service.OperationTarget;
 import app.tambo.application.service.RunServiceOperation;
 import app.tambo.application.service.ServiceOperation;
 import app.tambo.domain.service.ComposeService;
+import app.tambo.domain.service.ContainerInstance;
 import app.tambo.domain.service.PublishedPort;
+import app.tambo.domain.service.ResourceUsage;
 import app.tambo.domain.service.RuntimeState;
 import app.tambo.domain.service.ServiceRuntime;
 import app.tambo.project.ProjectContext;
@@ -28,6 +31,7 @@ import dev.tamboui.tui.event.KeyEvent;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
@@ -40,6 +44,7 @@ import static dev.tamboui.style.Color.LIGHT_GREEN;
 import static dev.tamboui.style.Color.LIGHT_RED;
 import static dev.tamboui.style.Color.LIGHT_YELLOW;
 import static dev.tamboui.toolkit.Toolkit.column;
+import static dev.tamboui.toolkit.Toolkit.lineGauge;
 import static dev.tamboui.toolkit.Toolkit.panel;
 import static dev.tamboui.toolkit.Toolkit.row;
 import static dev.tamboui.toolkit.Toolkit.text;
@@ -52,27 +57,34 @@ public final class TamboApp extends ToolkitApp {
     private final ProjectContext project;
     private final ComposeEventObserver composeEvents;
     private final RefreshRuntimeSnapshot refreshRuntime;
+    private final RefreshResourceStats refreshStats;
     private final RunServiceOperation serviceOperations;
     private final LogsController logsController;
     private LogMode logMode = LogMode.SELECTED_SERVICE;
     private final Map<String, ServiceOperation> activeOperations = new HashMap<>();
     private ServiceOperation globalOperation;
     private Map<String, ServiceRuntime> runtimeByService;
+    private Map<String, ResourceUsage> resourceUsageByContainer;
     private UiState state;
     private RefreshStatus refreshStatus = RefreshStatus.IDLE;
     private String refreshMessage = "";
     private String eventMessage = "";
+    private StatsStatus statsStatus = StatsStatus.IDLE;
+    private String statsMessage = "";
     private OperationStatus operationStatus = OperationStatus.IDLE;
     private String operationMessage = "";
     private LogViewport logViewport = LogViewport.atEnd();
     private LayoutState layout = LayoutState.defaults();
     private ToolkitRunner.ScheduledAction runtimePolling;
+    private ToolkitRunner.ScheduledAction statsPolling;
 
     public TamboApp(
             ProjectContext project,
             List<ComposeService> services,
             Map<String, ServiceRuntime> runtimeByService,
+            Map<String, ResourceUsage> resourceUsageByContainer,
             RefreshRuntimeSnapshot refreshRuntime,
+            RefreshResourceStats refreshStats,
             RunServiceOperation serviceOperations,
             LogsController logsController,
             ComposeEventObserver composeEvents
@@ -80,8 +92,9 @@ public final class TamboApp extends ToolkitApp {
         this.project = Objects.requireNonNull(project, "project");
         this.composeEvents = Objects.requireNonNull(composeEvents, "composeEvents");
         this.runtimeByService = Map.copyOf(runtimeByService);
+        this.resourceUsageByContainer = Map.copyOf(resourceUsageByContainer);
         this.refreshRuntime = Objects.requireNonNull(refreshRuntime, "refreshRuntime");
-        this.serviceOperations = Objects.requireNonNull(serviceOperations, "serviceOperations");
+        this.refreshStats = Objects.requireNonNull(refreshStats, "refreshStats");        this.serviceOperations = Objects.requireNonNull(serviceOperations, "serviceOperations");
         this.logsController = Objects.requireNonNull(logsController, "logsController");
         this.state = new UiState(services, 0);
     }
@@ -99,15 +112,21 @@ public final class TamboApp extends ToolkitApp {
                 () -> runner().runOnRenderThread(() -> requestRuntimeRefresh()),
                 RUNTIME_REFRESH_INTERVAL
         );
+        statsPolling = runner().scheduleRepeating(
+                () -> runner().runOnRenderThread(() -> requestStatsRefresh()),
+                RUNTIME_REFRESH_INTERVAL
+        );
     }
 
     @Override
     protected void onStop() {
         runtimePolling.cancel();
+        statsPolling.cancel();
         composeEvents.close();
         logsController.close();
         serviceOperations.close();
         refreshRuntime.close();
+        refreshStats.close();
     }
 
     @Override
@@ -122,12 +141,14 @@ public final class TamboApp extends ToolkitApp {
 
         var overview = terminalSize.width() < 110
                 ? column(
-                        servicesPanel().percent(30),
-                        detailsPanel().fill()
+                        servicesPanel().percent(25),
+                        detailsPanel().percent(50),
+                        statsPanel().fill()
                 ).spacing(1).percent(layout.overviewHeightPercent())
                 : row(
                         servicesPanel().percent(layout.servicesWidthPercent()),
-                        detailsPanel().fill()
+                        detailsPanel().percent(48),
+                        statsPanel().fill()
                 ).spacing(1).percent(layout.overviewHeightPercent());
 
         return column(
@@ -221,6 +242,62 @@ public final class TamboApp extends ToolkitApp {
             case CONNECTING -> "connecting";
             case FOLLOWING -> "follow: on";
             case DISCONNECTED -> "disconnected";
+            case FAILED -> "failed";
+        };
+    }
+
+    private Panel statsPanel() {
+        var usages = selectedRuntime().instances().stream()
+                .map(instance -> resourceUsageByContainer.get(instance.name()))
+                .filter(Objects::nonNull)
+                .toList();
+        Element content;
+        if (usages.isEmpty()) {
+            content = text("No runtime metrics available").dim();
+        } else {
+            content = column(usages.stream()
+                    .map(this::resourceUsageCard)
+                    .toArray(Element[]::new));
+        }
+
+        return standardPanel("󰍛 Resource Usage", content)
+                .bottomTitle(statsStatusLabel())
+                .id("stats")
+                .fill();
+    }
+
+    private Element resourceUsageCard(ResourceUsage usage) {
+        var cpu = lineGauge(ratio(usage.cpuPercent()))
+                .label("CPU " + formatPercent(usage.cpuPercent()))
+                .filledColor(LIGHT_GREEN)
+                .fill();
+        var memory = lineGauge(ratio(usage.memoryPercent()))
+                .label("Memory " + formatPercent(usage.memoryPercent()))
+                .filledColor(LIGHT_YELLOW)
+                .fill();
+        return column(
+                text("󰘚 " + usage.containerName()).fg(LIGHT_BLUE).bold(),
+                cpu,
+                memory,
+                text("󰈀 Network  ↓ " + usage.networkInput()
+                        + "  ↑ " + usage.networkOutput()).dim(),
+                text("󰈀 Processes " + usage.processCount()).dim()
+        ).spacing(1);
+    }
+
+    private double ratio(double percent) {
+        return Math.min(1.0, Math.max(0.0, percent / 100.0));
+    }
+
+    private String formatPercent(double percent) {
+        return String.format(Locale.ROOT, "%.1f%%", percent);
+    }
+
+    private String statsStatusLabel() {
+        return switch (statsStatus) {
+            case IDLE -> "waiting";
+            case REFRESHING -> "refreshing";
+            case SUCCEEDED -> "live";
             case FAILED -> "failed";
         };
     }
@@ -576,6 +653,39 @@ public final class TamboApp extends ToolkitApp {
         refreshMessage = errorMessage(error);
     }
 
+    private EventResult requestStatsRefresh() {
+        if (statsStatus == StatsStatus.REFRESHING) {
+            return EventResult.HANDLED;
+        }
+
+        statsStatus = StatsStatus.REFRESHING;
+        statsMessage = "";
+        refreshStats.execute(allContainers()).whenComplete((stats, error) -> {
+            if (!runner().isRunning()) {
+                return;
+            }
+            runner().runOnRenderThread(() -> finishStats(stats, error));
+        });
+        return EventResult.HANDLED;
+    }
+
+    private List<ContainerInstance> allContainers() {
+        return runtimeByService.values().stream()
+                .flatMap(runtime -> runtime.instances().stream())
+                .toList();
+    }
+
+    private void finishStats(Map<String, ResourceUsage> stats, Throwable error) {
+        if (error == null) {
+            resourceUsageByContainer = Map.copyOf(stats);
+            statsStatus = StatsStatus.SUCCEEDED;
+            return;
+        }
+
+        statsStatus = StatsStatus.FAILED;
+        statsMessage = errorMessage(error);
+    }
+
     private String errorMessage(Throwable error) {
         var cause = error instanceof CompletionException && error.getCause() != null
                 ? error.getCause()
@@ -646,6 +756,13 @@ public final class TamboApp extends ToolkitApp {
     private enum OperationStatus {
         IDLE,
         RUNNING,
+        SUCCEEDED,
+        FAILED
+    }
+
+    private enum StatsStatus {
+        IDLE,
+        REFRESHING,
         SUCCEEDED,
         FAILED
     }

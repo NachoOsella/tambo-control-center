@@ -35,8 +35,8 @@
 - [x] Compose events stream.
 - [x] Runtime refresh invalidation from events.
 - [ ] Reconciliation polling fallback.
-- [ ] Stats snapshots.
-- [ ] CPU and memory in details.
+- [x] Stats snapshots.
+- [x] CPU and memory in details.
 - [ ] Debug logging.
 - [ ] Better error details overlay.
 - [ ] Integration tests with real Docker.
