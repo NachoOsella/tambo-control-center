@@ -74,6 +74,9 @@ The current screen has a global header, Services, Details, Resource Usage, and L
 | `f` | Toggle log follow while Logs is focused |
 | `G` | Jump to the newest log line |
 | `c` | Clear the local log buffer |
+| `Ctrl+f` | Search logs while Logs is focused |
+| `n` | Move to the next log search match |
+| `y` | Copy the last visible log line using OSC52 |
 | `Ctrl+h` / `Ctrl+l` | Resize the Services column |
 | `Ctrl+j` / `Ctrl+k` | Resize the overview height; ratios are persisted locally |
 | `q` | Quit |
@@ -158,6 +161,7 @@ The current tests cover the implemented foundation:
 - `DockerComposeIntegrationTest`: read-only adapters against the local Compose project when integration tests are enabled;
 - `ComposeFileChangeDetectorTest`: Compose file change detection without stale notifications;
 - `LayoutPreferencesTest`: persisted layout ratios and safe defaults;
+- `LogSearchTest`: case-insensitive log matching and missing-query behavior;
 - `RefreshResourceStatsTest`: asynchronous statistics results and failures;
 - `ServiceFilterTest`: case-insensitive service filtering and blank-query behavior;
 - `ProcessRunnerTest`: output capture, exit codes, and timeout handling;

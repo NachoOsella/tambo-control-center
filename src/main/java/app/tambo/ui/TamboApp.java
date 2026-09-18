@@ -86,6 +86,9 @@ public final class TamboApp extends ToolkitApp {
     private ServiceOperation pendingConfirmation;
     private boolean filterActive;
     private String filterQuery = "";
+    private boolean logSearchActive;
+    private String logSearchQuery = "";
+    private int logSearchMatch = -1;
     private ToolkitRunner.ScheduledAction runtimePolling;
     private ToolkitRunner.ScheduledAction statsPolling;
     private boolean composeFileChanged;
@@ -209,6 +212,8 @@ public final class TamboApp extends ToolkitApp {
                         text("l               selected/all logs"),
                         text("/               filter services"),
                         text("f / G / c       follow, end, clear logs"),
+                        text("Ctrl+f / n      search logs / next match"),
+                        text("y               copy the visible log line"),
                         text("e               show the last full error"),
                         text(""),
                         text("Layout").fg(CYAN).bold(),
@@ -304,14 +309,23 @@ public final class TamboApp extends ToolkitApp {
         } else {
             var range = logViewport.visibleRange(view.lines().size(), VISIBLE_LOG_LINES);
             var lines = view.lines().subList(range.start(), range.end()).stream()
-                    .map(line -> (Element) text(line))
+                    .map(line -> {
+                        var element = text(line);
+                        if (!logSearchQuery.isBlank()
+                                && line.toLowerCase(Locale.ROOT)
+                                .contains(logSearchQuery.toLowerCase(Locale.ROOT))) {
+                            element = element.fg(LIGHT_YELLOW);
+                        }
+                        return (Element) element;
+                    })
                     .toArray(Element[]::new);
             content = column(lines);
         }
 
         return standardPanel("󰆍 Logs · " + view.scope().label(), content)
                 .bottomTitle(logStatusLabel(view.status())
-                        + " · follow: " + (logViewport.following() ? "on" : "off"))
+                        + " · follow: " + (logViewport.following() ? "on" : "off")
+                        + (logSearchActive ? " · search: " + logSearchQuery : ""))
                 .id("logs")
                 .focusable()
                 .focusedBorderColor(CYAN)
@@ -641,6 +655,8 @@ public final class TamboApp extends ToolkitApp {
                 text(filterActive ? filterQuery : "filter").dim(),
                 text("f/G/c").fg(CYAN).bold(),
                 text("follow/end/clear").dim(),
+                text("C-f/y").fg(CYAN).bold(),
+                text("search/copy").dim(),
                 text("D").fg(CYAN).bold(),
                 text("down").dim(),
                 text("e").fg(CYAN).bold(),
@@ -997,8 +1013,21 @@ public final class TamboApp extends ToolkitApp {
     }
 
     private EventResult handleLogKey(KeyEvent event) {
+        if (logSearchActive) {
+            return handleLogSearchKey(event);
+        }
         if (event.isChar('q')) {
             quit();
+            return EventResult.HANDLED;
+        }
+        if (event.hasCtrl() && event.isChar('f')) {
+            logSearchActive = true;
+            logSearchQuery = "";
+            logSearchMatch = -1;
+            return EventResult.HANDLED;
+        }
+        if (event.isChar('y')) {
+            copyVisibleLogLine();
             return EventResult.HANDLED;
         }
         int lineCount = logsController.view().lines().size();
@@ -1017,6 +1046,51 @@ public final class TamboApp extends ToolkitApp {
             return EventResult.UNHANDLED;
         }
         return EventResult.HANDLED;
+    }
+
+    private EventResult handleLogSearchKey(KeyEvent event) {
+        if (event.isCancel()) {
+            logSearchActive = false;
+            return EventResult.HANDLED;
+        }
+        if (event.isDeleteBackward()) {
+            if (!logSearchQuery.isEmpty()) {
+                logSearchQuery = logSearchQuery.substring(0, logSearchQuery.length() - 1);
+                findLogMatch(0);
+            }
+            return EventResult.HANDLED;
+        }
+        if (event.isChar('n')) {
+            findLogMatch(logSearchMatch < 0 ? 0 : logSearchMatch + 1);
+            return EventResult.HANDLED;
+        }
+        if (event.character() >= 32 && !Character.isISOControl(event.character())) {
+            logSearchQuery += event.character();
+            findLogMatch(0);
+            return EventResult.HANDLED;
+        }
+        return EventResult.HANDLED;
+    }
+
+    private void findLogMatch(int startIndex) {
+        var lines = logsController.view().lines();
+        logSearchMatch = LogSearch.find(lines, logSearchQuery, startIndex);
+        if (logSearchMatch >= 0) {
+            var end = Math.min(lines.size(), logSearchMatch + VISIBLE_LOG_LINES);
+            logViewport = new LogViewport(false, end);
+        }
+    }
+
+    private void copyVisibleLogLine() {
+        var lines = logsController.view().lines();
+        if (lines.isEmpty()) {
+            eventMessage = "No log line to copy";
+            return;
+        }
+        var range = logViewport.visibleRange(lines.size(), VISIBLE_LOG_LINES);
+        var index = Math.max(range.start(), range.end() - 1);
+        TerminalClipboard.copy(lines.get(index));
+        eventMessage = "Copied log line " + (index + 1);
     }
 
     private void requestLogRender() {

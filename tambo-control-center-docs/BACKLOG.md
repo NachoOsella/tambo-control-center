@@ -48,8 +48,8 @@
 ## P2: useful follow-ups
 
 - [x] Filter services.
-- [ ] Search logs.
-- [ ] Copy log line.
+- [x] Search logs.
+- [x] Copy log line.
 - [x] Show service dependencies.
 - [x] Profiles view.
 - [x] `up --build` action.
